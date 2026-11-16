@@ -2,6 +2,9 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { CollaborativeApp } from './live/CollaborativeApp';
 import './index.css';
+import { initTheme } from './hooks/useTheme';
+
+initTheme();
 
 // Registro de Service Worker para PWA
 if ('serviceWorker' in navigator && import.meta.env.PROD) {

@@ -17,11 +17,24 @@ import { useSheetDrag } from '../hooks/useSheetDrag';
 import { AppNav } from '../components/AppNav';
 import type { TabId } from '../components/AppNav';
 import { UserAvatar } from '../components/UserAvatar';
-import { LogOut, Plus, Settings } from 'lucide-react';
+import { LogOut, MessageCircle, Monitor, Moon, Plus, Settings, Sun, Target, Users } from 'lucide-react';
+import { Toast } from '../components/Toast';
+import type { ToastData } from '../components/Toast';
+import { EmptyState } from '../components/EmptyState';
+import { LoadingScreen } from '../components/Skeleton';
+import { BudgetGauge } from '../components/BudgetGauge';
+import { GroupCard } from '../components/GroupCard';
+import { MOVEMENT_META, MovementTypeIcon } from '../components/MovementTypeIcon';
+import { useTheme } from '../hooks/useTheme';
+import type { ThemePreference } from '../hooks/useTheme';
 import type { DictationMessages } from '../services/voice/questionDictation';
 import './live.css';
+import '../components/components.css';
 
-const defaults: Preferences = { weeklyBudget:300,highContrast:false,largeText:false,reducedMotion:false,simple:false,audio:false };
+// El tema solo existe en el cliente: preferences es JSON en Supabase y no requiere migración.
+type AppPreferences = Preferences & { theme: ThemePreference };
+const defaults: AppPreferences = { weeklyBudget:300,highContrast:false,largeText:false,reducedMotion:false,simple:false,audio:false,theme:'system' };
+const themeOptions = [['system','Según el sistema',Monitor],['light','Claro',Sun],['dark','Oscuro',Moon]] as const;
 const statusNames: Record<string,string> = {pending:'Pendiente de aprobación',approved:'Aprobada',rejected:'Rechazada'};
 const movementNames = {expense:'Gasto',income:'Ingreso',savings:'Ahorro'};
 const movementDictation: Partial<DictationMessages> = {
@@ -58,7 +71,7 @@ export function CollaborativeApp() {
     const {data}=database.auth.onAuthStateChange((_event,s)=>{setSession(s);setReady(true);});
     return()=>{data.subscription.unsubscribe();SpeechService.stopSpeaking();};
   },[]);
-  if(!ready)return <main className="av-page"><p role="status">Preparando tu espacio…</p></main>;
+  if(!ready)return <LoadingScreen label="Preparando tu espacio…"/>;
   if(!database)return <main className="av-page"><h1>Alcancía Viva</h1><p>Configura la conexión con Supabase para usar las cuentas y los grupos.</p></main>;
   if(recovery!=='none')return <PasswordRecovery userId={session?.user.id||null} valid={recovery==='active'&&Boolean(session)} onFinish={()=>passwordRecovery.finish()}/>;
   return session ? <Workspace key={session.user.id} session={session}/> : <Auth/>;
@@ -113,9 +126,10 @@ function Workspace({session}:{session:Session}) {
   const userId=session.user.id;
   const [profile,setProfile]=useState<Profile|null>(null),[profileReady,setProfileReady]=useState(false);
   const [data,setData]=useState<Snapshot>(emptySnapshot),[tab,setTab]=useState('garden'),[groupId,setGroupId]=useState(ALL_SPACES);
-  const [message,setMessage]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+  const [toast,setToast]=useState<ToastData|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+  const setMessage=(text:string,extra:Partial<ToastData>={})=>setToast(text?{id:Date.now()+Math.random(),text,tone:'success',...extra}:null);
   const [online,setOnline]=useState(navigator.onLine),[connected,setConnected]=useState(false);
-  const [people,setPeople]=useState<{members:Member[];requests:Request[]}>({members:[],requests:[]});
+  const [peopleByGroup,setPeopleByGroup]=useState<Record<string,{members:Member[];requests:Request[]}>>({});
   const [composer,setComposer]=useState(false),[pending,setPending]=useState(0);
   const [composerGoalId,setComposerGoalId]=useState(''),[selectedGoalId,setSelectedGoalId]=useState('');
   const [watering,setWatering]=useState<{goalId:string;nonce:number}|null>(null);
@@ -125,7 +139,10 @@ function Workspace({session}:{session:Session}) {
   const [onboardingName,setOnboardingName]=useState(session.user.user_metadata.display_name||'');
   const [consent,setConsent]=useState(false);
   const queueKey=`av-pending-${userId}`;
-  const prefs={...defaults,...profile?.preferences};
+  const prefs={...defaults,...profile?.preferences} as AppPreferences;
+  useTheme(prefs.theme);
+  const people=peopleByGroup[groupId]||{members:[],requests:[]};
+  const pendingRequests=data.groups.filter(g=>data.roles[g.id]==='admin').reduce((total,g)=>total+(peopleByGroup[g.id]?.requests.length||0),0);
   const reloadCounter=useRef(0);
   const selectedGroup=data.groups.find(g=>g.id===groupId);
   const isOverview=groupId===ALL_SPACES;
@@ -182,11 +199,21 @@ function Workspace({session}:{session:Session}) {
     return()=>{requireDatabase().removeChannel(channel);window.removeEventListener('online',onOnline);window.removeEventListener('offline',onOffline);};
   },[Boolean(profile),refresh]);
   useEffect(()=>{
+    // Integrantes y solicitudes de cada grupo: avatares en las tarjetas y badge del administrador.
     let alive=true;
-    if(!selectedGroup){setPeople({members:[],requests:[]});return;}
-    rpc<{members:Member[];requests:Request[]}>('group_people',{p_group:groupId}).then(p=>{if(alive)setPeople(p);}).catch(e=>{if(alive)setError(errorMessage(e));});
+    const ids=data.groups.map(g=>g.id);
+    if(!ids.length){setPeopleByGroup({});return;}
+    Promise.allSettled(ids.map(id=>rpc<{members:Member[];requests:Request[]}>('group_people',{p_group:id}))).then(results=>{
+      if(!alive)return;
+      const next:Record<string,{members:Member[];requests:Request[]}>={};
+      results.forEach((result,index)=>{
+        if(result.status==='fulfilled')next[ids[index]]={members:result.value?.members||[],requests:result.value?.requests||[]};
+        else if(ids[index]===groupId)setError(errorMessage(result.reason));
+      });
+      setPeopleByGroup(next);
+    });
     return()=>{alive=false;};
-  },[groupId,data,Boolean(selectedGroup)]);
+  },[data,groupId]);
   useEffect(()=>{
     const code=new URLSearchParams(location.search).get('invite');
     if(code){setTab('groups');setNotice('Hay una invitación en el enlace. Revisa el código y envía tu solicitud.');}
@@ -209,9 +236,10 @@ function Workspace({session}:{session:Session}) {
     });
   }
   async function saveMovement(m:Movement,phrase:string,originalCategory:string){
-    if(!online){writeQueue([...readQueue(),m]);setMessage('Guardado como pendiente en este dispositivo. Se sincronizará al recuperar conexión.');return;}
+    if(!online){writeQueue([...readQueue(),m]);setMessage('Guardado como pendiente en este dispositivo. Se sincronizará al recuperar conexión.',{type:m.type,tone:'info'});return;}
     await saveRemote(m);
-    setMessage(m.type==='savings'?`${soles(m.amount)} sumados a ${data.goals.find(g=>g.id===m.goal_id)?.title}.`: `${movementNames[m.type]} de ${soles(m.amount)} guardado.`);
+    setMessage(m.type==='savings'?`${soles(m.amount)} sumados a ${data.goals.find(g=>g.id===m.goal_id)?.title}.`: `${movementNames[m.type]} de ${soles(m.amount)} guardado.`,
+      {type:m.type,action:{label:'Deshacer',onClick:()=>act(async()=>{await rpc('reverse_movement',{p_id:m.id});await refresh();setMessage('Movimiento revertido; actualizamos el avance.',{tone:'info'});})}});
     if(profile&&phrase&&m.type==='expense'&&originalCategory!==m.category){
       const key=learningKey(phrase);const previous=profile.learned_categories[key];
       try{await updateProfile({...profile,learned_categories:{...profile.learned_categories,[key]:{category:m.category,count:previous?.category===m.category?previous.count+1:1}}});}
@@ -229,7 +257,7 @@ function Workspace({session}:{session:Session}) {
       setChat(previous=>[...previous,{question,answer:reply.answer}]);setAssistantQuestion('');
     });
   }
-  if(!profileReady)return <main className="av-page"><p role="status">Cargando tu perfil…</p></main>;
+  if(!profileReady)return <LoadingScreen label="Cargando tu perfil…"/>;
   if(!profile)return <main className="av-page"><section className="av-card"><h1>Prepara tu jardín</h1><form onSubmit={finishProfile}>
     <label>Tu nombre<input required maxLength={100} value={onboardingName} onChange={e=>setOnboardingName(e.target.value)}/></label>
     <p>Usa datos de práctica. Guardaremos tu perfil, preferencias y movimientos en Supabase. Solo los aportes de un grupo son visibles para sus miembros.</p>
@@ -245,17 +273,16 @@ function Workspace({session}:{session:Session}) {
         <button type="button" className="av-secondary av-icon-button av-header-settings" aria-label="Preferencias" aria-current={tab==='settings'?'page':undefined} onClick={()=>goTo('settings')}><Settings size={24} aria-hidden="true"/></button>
         <button type="button" className="av-secondary av-header-logout" onClick={signOut}>Salir</button>
       </div></header>
-    <div className="av-layout"><AppNav tab={tab} onChange={goTo}/>
+    <div className="av-layout"><AppNav tab={tab} onChange={goTo} badges={{groups:{count:pendingRequests,label:`${pendingRequests} solicitud${pendingRequests===1?'':'es'} pendiente${pendingRequests===1?'':'s'}`}}}/>
     <main id="av-main" tabIndex={-1} className="av-main">
       <div className="av-toolbar"><label>Tu espacio<select value={groupId} onChange={e=>{setGroupId(e.target.value);setError('');}}><option value={ALL_SPACES}>Todas mis metas</option><option value="">Personal</option>{data.groups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select></label>
         <button type="button" className="av-with-icon av-toolbar-register" aria-keyshortcuts="n" onClick={()=>openComposer()}><Plus size={24} aria-hidden="true"/>Registrar movimiento</button></div>
-      <div role="status" aria-live="polite" className={message?'av-notice':''}>{message}</div>
       {error&&<p role="alert" className="av-error">{error}</p>}{notice&&<p className="av-notice">{notice}<button className="av-link" onClick={()=>setNotice('')}>Cerrar aviso</button></p>}
       {pending>0&&<p role="status">{pending} movimiento(s) pendiente(s). <button className="av-link" disabled={!online||busy} onClick={()=>act(flushQueue)}>Reintentar sincronización</button></p>}
       {tab==='garden'&&<>
         <Garden goals={selectedGoals} groups={data.groups} selectedId={selectedGoalId} today={today} prefs={prefs} onSelect={setSelectedGoalId} onContribute={openComposer} onCreate={()=>setTab('goals')} watering={watering}/>
         <div className="av-stats"><section className="av-card"><h2>Avance conjunto de tus metas</h2><strong>{soles(garden.saved)}</strong><p>{selectedGoals.length} meta(s){isOverview?' personales y compartidas':selectedGroup?` de ${selectedGroup.name}`:' personales'}. Cada planta crece según su propio avance.</p></section>
-          <section className="av-card"><h2>Tu presupuesto semanal</h2><strong>{soles(spent)} de {soles(prefs.weeklyBudget)}</strong><p>Solo tus gastos de esta semana, de lunes a hoy.</p><progress max={prefs.weeklyBudget} value={Math.min(spent,prefs.weeklyBudget)} aria-label="Gasto respecto al presupuesto semanal"/>
+          <section className="av-card av-budget-card"><h2>Tu presupuesto semanal</h2><p>Solo tus gastos de esta semana, de lunes a hoy.</p><BudgetGauge spent={spent} budget={prefs.weeklyBudget} movements={mine} today={today}/>
             <p>{spent>prefs.weeklyBudget?'Superaste el presupuesto que elegiste. Puedes revisar tus categorías y ajustar el próximo paso.':'Puedes revisar tus movimientos cuando lo necesites.'}</p></section></div>
       </>}
       {tab==='goals'&&<><h1>{selectedGroup?`Metas de ${selectedGroup.name}`:'Mis metas'}</h1><p>Un ahorro se suma únicamente a la meta que confirmes.</p>
@@ -263,12 +290,14 @@ function Workspace({session}:{session:Session}) {
         {(!selectedGroup||groupAdmin)&&<GoalForm groupId={selectedGroup?.id||''} busy={busy} onCreate={(title,amount,date)=>act(async()=>{const id=await rpc<string>('create_goal',{p_title:title,p_amount:amount,p_date:date,p_group:selectedGroup?.id||null});await refresh();setSelectedGoalId(id);setMessage('Meta creada. Plantamos una nueva maceta; el ahorro de tus otras metas se conserva.');})}/>}
         {!!selectedGroup&&!groupAdmin&&<p>El administrador crea las metas. Todos los miembros pueden aportar.</p>}
         <div className="av-cards">{selectedGoals.map(g=><GoalCard key={g.id} goal={g} groups={data.groups} today={today} onView={()=>{setSelectedGoalId(g.id);setTab('garden');}} onContribute={()=>openComposer(g)}/>)}</div>
-        {!selectedGoals.length&&<p>Aún no hay metas en este espacio.</p>}</>}
+        {!selectedGoals.length&&<EmptyState title="Planta tu primera meta" text={!selectedGroup||groupAdmin?'Dale un nombre, un monto y una fecha. Verás crecer su maceta con cada aporte.':'Cuando el administrador cree una meta compartida, aparecerá aquí para que aportes.'}
+          action={!selectedGroup||groupAdmin?{label:'Crear una meta',icon:<Target size={24} aria-hidden="true"/>,onClick:()=>{const form=document.getElementById('av-goal-form') as HTMLDetailsElement|null;if(form){form.open=true;form.querySelector('input')?.focus();}}}:undefined}/>}</>}
       {tab==='groups'&&<><h1>Ahorrar también es compartir</h1><p>Puedes pertenecer a varios grupos. Tus gastos personales se mantienen privados.</p>
         <GroupForms busy={busy} onCreate={name=>act(async()=>{const r=await rpc<{group_id:string}>('create_group',{p_name:name});await refresh();setGroupId(r.group_id);setMessage('Grupo creado. Ya puedes crear metas e invitar.');})}
           onJoin={code=>act(async()=>{const r=await rpc<{group_name:string;status:string}>('request_group_access',{p_code:code});await refresh();setMessage(`${r.group_name}: ${statusNames[r.status]||'Ya eres miembro'}.`);})}/>
         <section className="av-card"><h2>Mis solicitudes</h2>{!data.requests.length?<p>No tienes solicitudes.</p>:data.requests.map(r=><p key={r.id}>{r.name} · <strong>{statusNames[r.status]}</strong></p>)}</section>
-        <h2>Grupos a los que perteneces</h2><div className="av-cards">{data.groups.map(g=><button className="av-group-choice" key={g.id} aria-pressed={g.id===groupId} onClick={()=>setGroupId(g.id)}>{g.name}<span>{data.roles[g.id]==='admin'?'Administrador':'Miembro'}</span></button>)}</div>
+        <h2>Grupos a los que perteneces</h2>{data.groups.length?<div className="av-cards">{data.groups.map(g=><GroupCard key={g.id} group={g} role={data.roles[g.id]} members={peopleByGroup[g.id]?.members||[]} goals={data.goals.filter(goal=>goal.group_id===g.id)} selected={g.id===groupId} onSelect={()=>setGroupId(g.id)}/>)}</div>:
+          <EmptyState headingLevel={3} title="Todavía no compartes un jardín" text="Crea un grupo para ahorrar con tu familia o amigos, o pide ingreso con un código de invitación." action={{label:'Crear un grupo',icon:<Users size={24} aria-hidden="true"/>,onClick:()=>document.getElementById('av-group-name')?.focus()}}/>}
         {selectedGroup&&<section className="av-card"><h2>{selectedGroup.name}</h2><p>{people.members.length} integrante(s) · varias metas compartidas</p>
           <ul>{people.members.map(m=><li key={m.user_id}>{m.name} · {m.role==='admin'?'Administrador':'Miembro'}</li>)}</ul>
           {groupAdmin&&<><h3>Invitaciones</h3><p>Compartir el código no concede acceso: debes aprobar la solicitud.</p>
@@ -276,16 +305,21 @@ function Workspace({session}:{session:Session}) {
               <button className="av-secondary" onClick={()=>act(async()=>{await navigator.clipboard.writeText(`${location.origin}${location.pathname}?invite=${i.code}`);setMessage('Enlace copiado.');})}>Copiar enlace</button>
               <button className="av-secondary" disabled={busy} onClick={()=>act(async()=>{await rpc('revoke_group_invitation',{p_invitation:i.id});await refresh();setMessage('Invitación revocada.');})}>Revocar código</button></div>)}
             <button className="av-secondary" disabled={busy} onClick={()=>act(async()=>{await rpc('create_group_invitation',{p_group:groupId});await refresh();setMessage('Nueva invitación creada.');})}>Crear nueva invitación</button>
-            <h3>Solicitudes de ingreso</h3>{!people.requests.length?<p>No hay solicitudes pendientes.</p>:people.requests.map(r=><div className="av-request" key={r.id}><strong>{r.name}</strong>
+            <h3>Solicitudes de ingreso{people.requests.length>0&&<span className="av-count-badge">{people.requests.length}</span>}</h3>{!people.requests.length?<p>No hay solicitudes pendientes.</p>:people.requests.map(r=><div className="av-request" key={r.id}><strong>{r.name}</strong>
               <button disabled={busy} onClick={()=>act(async()=>{await rpc('decide_group_request',{p_request:r.id,p_approve:true});await refresh();setMessage('Solicitud aprobada.');})}>Aprobar</button>
               <button className="av-secondary" disabled={busy} onClick={()=>act(async()=>{await rpc('decide_group_request',{p_request:r.id,p_approve:false});await refresh();setMessage('Solicitud rechazada.');})}>Rechazar</button></div>)}</>}
         </section>}</>}
-      {tab==='history'&&<MovementHistory snapshot={data} profile={profile} scope={groupId} busy={busy} onUndo={id=>act(async()=>{await rpc('reverse_movement',{p_id:id});await refresh();setMessage('Movimiento revertido; actualizamos el avance.');})}/>}
+      {tab==='history'&&<MovementHistory snapshot={data} profile={profile} scope={groupId} busy={busy} onRegister={()=>openComposer()} onUndo={id=>act(async()=>{await rpc('reverse_movement',{p_id:id});await refresh();setMessage('Movimiento revertido; actualizamos el avance.');})}/>}
       {tab==='assistant'&&<><h1>Un paso a la vez</h1><p>Soy el asistente de IA de Alcancía Viva. Puedo ayudarte a comprender tus registros; las propuestas no mueven dinero ni crean aportes.</p>
+        {!chat.length&&<EmptyState title="Pregunta lo que quieras entender" text="Por ejemplo: «¿En qué gasté más esta semana?» o «¿Cuánto me falta para mi laptop?». Puedes escribir o dictar." action={{label:'Escribir una pregunta',icon:<MessageCircle size={24} aria-hidden="true"/>,onClick:()=>document.getElementById('av-assistant-question')?.focus()}}/>}
         <div role="log" aria-label="Conversación con el asistente" aria-live="polite">{chat.map((item,i)=><section className="av-card" key={i}><p><strong>Tú:</strong> {item.question}</p><p><strong>Asistente:</strong> {item.answer}</p><AnswerAudio answer={item.answer}/></section>)}</div>
         <AssistantQuestionForm question={assistantQuestion} onQuestion={setAssistantQuestion} busy={busy||composer} onSubmit={askAssistant}/></>}
       {tab==='settings'&&<><h1>A tu manera</h1><section className="av-card"><h2>Preferencias de accesibilidad</h2>
         {([['highContrast','Alto contraste'],['largeText','Texto grande (200 %)'],['reducedMotion','Reducir movimiento'],['simple','Mensajes sencillos'],['audio','Leer confirmaciones en voz alta']] as const).map(([key,label])=><label className="av-check" key={key}><input type="checkbox" checked={prefs[key]} disabled={busy} onChange={e=>act(async()=>{await updateProfile({...profile,preferences:{...prefs,[key]:e.target.checked}});setMessage('Preferencia guardada.');})}/>{label}</label>)}
+        <fieldset className="av-theme-picker"><legend>Tema de color</legend>
+          {themeOptions.map(([value,label,Icon])=><label className="av-theme-option" key={value}><input type="radio" name="av-theme" value={value} checked={prefs.theme===value} disabled={busy} onChange={()=>act(async()=>{await updateProfile({...profile,preferences:{...prefs,theme:value} as Profile['preferences']});setMessage('Tema actualizado.');})}/><Icon size={24} aria-hidden="true"/><span>{label}</span></label>)}
+          <p>El alto contraste, si está activado, tiene prioridad sobre el tema.</p>
+        </fieldset>
         <label>Presupuesto semanal en soles<input type="number" min="1" step="0.01" defaultValue={prefs.weeklyBudget} onBlur={e=>{const amount=Number(e.target.value);if(amount>0)act(async()=>{await updateProfile({...profile,preferences:{...prefs,weeklyBudget:amount}});setMessage('Presupuesto actualizado.');});}}/></label>
         <p>Las correcciones de categoría se recuerdan. Tras tres correcciones iguales para la misma frase, se proponen en futuros registros.</p>
         <button className="av-secondary" disabled={busy} onClick={()=>act(async()=>{await updateProfile({...profile,learned_categories:{}});setMessage('Aprendizaje de categorías reiniciado.');})}>Reiniciar categorías aprendidas</button>
@@ -295,17 +329,18 @@ function Workspace({session}:{session:Session}) {
       <section className="av-card"><h2>Tu sesión</h2><p>Sesión iniciada como {profile.display_name}.</p>
         <button type="button" className="av-secondary av-with-icon" onClick={signOut}><LogOut size={24} aria-hidden="true"/>Cerrar sesión</button></section></>}
     </main></div>
+    <Toast toast={toast} onDismiss={()=>setToast(null)}/>
     <button type="button" className="av-fab" aria-label="Registrar movimiento" aria-keyshortcuts="n" onClick={()=>openComposer()}><Plus size={24} aria-hidden="true"/></button>
     {composer&&<MovementComposer data={data} profile={profile} groupId={selectedGroup?.id||''} initialGoalId={composerGoalId} audio={prefs.audio} onClose={()=>setComposer(false)} onSave={saveMovement}/>}
   </div>;
 }
 
 function GoalForm({groupId,busy,onCreate}:{groupId:string;busy:boolean;onCreate:(title:string,amount:number,date:string)=>Promise<void>}) {
-  return <details className="av-card" key={groupId}><summary>Crear una meta</summary><form onSubmit={async e=>{e.preventDefault();const form=e.currentTarget;const f=new FormData(form);await onCreate(String(f.get('title')),Number(f.get('amount')),String(f.get('date')));}}>
+  return <details className="av-card" id="av-goal-form" key={groupId}><summary>Crear una meta</summary><form onSubmit={async e=>{e.preventDefault();const form=e.currentTarget;const f=new FormData(form);await onCreate(String(f.get('title')),Number(f.get('amount')),String(f.get('date')));}}>
     <label>Nombre de la meta<input name="title" required maxLength={100}/></label><label>Monto objetivo (S/)<input name="amount" type="number" min="0.01" step="0.01" required/></label><label>Fecha objetivo<input name="date" type="date" min={localDate()} required/></label><button disabled={busy}>Crear meta</button></form></details>;
 }
 function GroupForms({busy,onCreate,onJoin}:{busy:boolean;onCreate:(name:string)=>Promise<void>;onJoin:(code:string)=>Promise<void>}) {
-  return <div className="av-cards"><form className="av-card" onSubmit={e=>{e.preventDefault();onCreate(String(new FormData(e.currentTarget).get('name')));}}><h2>Crear un grupo</h2><label>Nombre del grupo<input name="name" required maxLength={100}/></label><button disabled={busy}>Crear grupo</button></form>
+  return <div className="av-cards"><form className="av-card" onSubmit={e=>{e.preventDefault();onCreate(String(new FormData(e.currentTarget).get('name')));}}><h2>Crear un grupo</h2><label>Nombre del grupo<input id="av-group-name" name="name" required maxLength={100}/></label><button disabled={busy}>Crear grupo</button></form>
     <form className="av-card" onSubmit={e=>{e.preventDefault();onJoin(String(new FormData(e.currentTarget).get('code')));}}><h2>Unirme a un grupo</h2><label>Código de invitación<input name="code" required defaultValue={new URLSearchParams(location.search).get('invite')||''}/></label><button disabled={busy}>Solicitar ingreso</button></form></div>;
 }
 
@@ -372,7 +407,7 @@ function MovementComposer({data,profile,groupId,initialGoalId,audio,onClose,onSa
       <div className="av-fields"><label>Monto en soles<input type="number" min="0.01" step="0.01" required value={amount} onChange={e=>setAmount(e.target.value)}/></label><label>Fecha<input type="date" required value={date} onChange={e=>setDate(e.target.value)}/></label></div>
       {type==='savings'?<><label>Espacio del ahorro<select value={destination} onChange={e=>{setDestination(e.target.value);setGoalId('');}}><option value="">Personal</option>{data.groups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select></label><label>Meta de destino<select value={goalId} required onChange={e=>setGoalId(e.target.value)}><option value="">¿A qué meta quieres aportar?</option>{goals.map(g=><option value={g.id} key={g.id}>{g.title}</option>)}</select></label>{!goals.length&&<p>Crea una meta en este espacio antes de registrar el ahorro.</p>}</>:<label>Categoría<input list="av-categories" required value={category} maxLength={100} onChange={e=>setCategory(e.target.value)}/><datalist id="av-categories">{['Alimentación','Transporte','Educación','Salud','Trabajo','Ocio','Servicios','Otros'].map(c=><option value={c} key={c}/>)}</datalist></label>}
       {error&&<p role="alert" className="av-error">{error}</p>}
-      <p className="av-review">{type?movementNames[type]:'Movimiento'} · {soles(Number(amount)||0)} · {type==='savings'?(data.goals.find(g=>g.id===goalId)?.title||'Falta elegir una meta'):(category||'Falta categoría')}</p>
+      <p className={`av-review ${type?`av-tone-${MOVEMENT_META[type].tone}`:''}`}>{type&&<MovementTypeIcon type={type} size={20}/>}<span>{type?movementNames[type]:'Movimiento'} · {soles(Number(amount)||0)} · {type==='savings'?(data.goals.find(g=>g.id===goalId)?.title||'Falta elegir una meta'):(category||'Falta categoría')}</span></p>
       <button disabled={busy||listening}>{busy?'Procesando…':'Confirmar y guardar'}</button>
     </form>
   </dialog>;

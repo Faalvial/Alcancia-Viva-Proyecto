@@ -3,9 +3,11 @@ import type { Goal, Group, Preferences } from './client';
 import { soles } from './domain';
 import { GROWTH_STAGES, gardenNumber, goalPercent, growthStage, gardenSummary, goalPace, goalDateLabel } from './garden';
 import { SpeechService } from '../services/voice/speechService';
+import { goalRemaining } from './timeline';
+import { GoalRing } from '../components/GoalRing';
 import './garden.css';
 
-function Plant({percent,index=0}:{percent:number;index?:number}) {
+export function Plant({percent,index=0}:{percent:number;index?:number}) {
   const stage=growthStage(percent);
   const style={'--ag-position':`${[0,50,100][stage%3]}% ${stage<3?0:100}%`,'--ag-delay':`${index*-.85}s`} as React.CSSProperties;
   return <span className="ag-plant" aria-hidden="true"><span className={`ag-stage ${stage<3?'ag-top-row':''}`} style={style}><span className="ag-vessel"/><span className="ag-foliage"/></span></span>;
@@ -67,6 +69,6 @@ export function Garden({goals,groups,selectedId,today,prefs,onSelect,onContribut
 }
 
 export function GoalCard({goal,groups,today,onView,onContribute}:{goal:Goal;groups:Group[];today:string;onView:()=>void;onContribute:()=>void}) {
-  const value=goalPercent(goal),phase=GROWTH_STAGES[growthStage(value)];
-  return <article className="av-goal-card"><div className="ag-card-art"><Plant percent={value}/><span className="ag-card-type">{groupLabel(goal,groups)}</span></div><div className="ag-card-body"><h2>{goal.title}</h2><p>{soles(goal.current_amount)} de {soles(goal.target_amount)}</p><div className="ag-progress-title"><span>{phase.name}</span><strong>{gardenNumber(value)} %</strong></div><progress max={100} value={value} aria-label={`Avance de ${goal.title}`}/><p>{goalPace(goal,today).label}</p><p>Fecha objetivo: {goalDateLabel(goal.target_date)}</p><div className="ag-card-actions"><button className="av-secondary" aria-label={`Ver la maceta de ${goal.title}`} onClick={onView}>Ver mi maceta</button><button aria-label={`Registrar un aporte para ${goal.title}`} onClick={onContribute}>Registrar un aporte</button></div></div></article>;
+  const value=goalPercent(goal),stageIndex=growthStage(value),phase=GROWTH_STAGES[stageIndex],remaining=goalRemaining(goal);
+  return <article className={`av-goal-card av-stage-${stageIndex}`}><div className="ag-card-art"><Plant percent={value}/><span className="ag-card-type">{groupLabel(goal,groups)}</span><GoalRing percent={value} stage={stageIndex} label={`${gardenNumber(value)} %`}/></div><div className="ag-card-body"><h2>{goal.title}</h2><p>{soles(goal.current_amount)} de {soles(goal.target_amount)}</p><p className="av-goal-remaining">{remaining>0?`Te faltan ${soles(remaining)}`:'Meta completa: tu planta floreció.'}</p><div className="ag-progress-title"><span>{phase.name}</span><strong>{gardenNumber(value)} %</strong></div><progress max={100} value={value} aria-label={`Avance de ${goal.title}`}/><p>{goalPace(goal,today).label}</p><p>Fecha objetivo: {goalDateLabel(goal.target_date)}</p><div className="ag-card-actions"><button className="av-secondary" aria-label={`Ver la maceta de ${goal.title}`} onClick={onView}>Ver mi maceta</button><button aria-label={`Registrar un aporte para ${goal.title}`} onClick={onContribute}>Registrar un aporte</button></div></div></article>;
 }

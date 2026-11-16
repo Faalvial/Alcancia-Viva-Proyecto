@@ -25,9 +25,10 @@ function fakeSession() {
   return { access_token: access, refresh_token: 'refresh-practica', token_type: 'bearer', expires_in: 86400, expires_at: exp, user };
 }
 
+// Misma zona horaria que la app (America/Lima), para que «Hoy» coincida.
 function isoDay(offset = 0) {
-  const d = new Date(); d.setDate(d.getDate() + offset);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  return new Date(Date.parse(`${today}T12:00:00Z`) + offset * 864e5).toISOString().slice(0, 10);
 }
 
 function sampleData(preferences) {
@@ -74,8 +75,14 @@ function sampleData(preferences) {
   };
 }
 
-async function mockBackend(page, { preferences = {}, signedIn = true } = {}) {
+// Opciones: preferences (se mezclan con las del perfil), signedIn, empty (cuenta sin
+// grupos, metas ni movimientos) y profileDelay (ms de espera del perfil, para ver la carga).
+async function mockBackend(page, { preferences = {}, signedIn = true, empty = false, profileDelay = 0 } = {}) {
   const data = sampleData(preferences);
+  if (empty) {
+    for (const key of Object.keys(data.tables)) data.tables[key] = [];
+    data.rpc.group_people = { members: [], requests: [] };
+  }
   const session = fakeSession();
   if (signedIn) {
     await page.addInitScript(([key, value]) => { try { localStorage.setItem(key, value); } catch {} }, [STORAGE_KEY, JSON.stringify(session)]);
@@ -98,6 +105,7 @@ async function mockBackend(page, { preferences = {}, signedIn = true } = {}) {
       const table = path.split('/').pop();
       if (request.method() !== 'GET') return json([], 201);
       if (table === 'profiles') {
+        if (profileDelay) await new Promise((resolve) => setTimeout(resolve, profileDelay));
         const accept = request.headers()['accept'] || '';
         return json(accept.includes('vnd.pgrst.object') ? data.profile : [data.profile]);
       }

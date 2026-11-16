@@ -3,7 +3,7 @@
 // Requiere `npm run build` y `npx vite preview --port 4173` en marcha.
 // Uso: node scripts/evidence/capture-shell.cjs <carpeta> [anchos] [modos]
 //   anchos: lista separada por comas (por defecto 320,375,768,1024,1440)
-//   modos:  normal,large,contrast (por defecto los tres)
+//   modos:  normal,large,contrast,dark,dark-contrast (por defecto los tres primeros)
 // Informa de cualquier scroll horizontal y termina con código 1 si lo hay.
 
 const { chromium } = require('playwright');
@@ -19,7 +19,9 @@ const tabs = [
   ['jardin', 'Mi jardín'], ['metas', 'Metas'], ['grupos', 'Mis grupos'],
   ['movimientos', 'Movimientos'], ['asistente', 'Asistente'], ['preferencias', 'Preferencias'],
 ];
-const modePrefs = { normal: {}, large: { largeText: true }, contrast: { highContrast: true } };
+const modePrefs = { normal: {}, large: { largeText: true }, contrast: { highContrast: true }, dark: { theme: 'dark' }, 'dark-contrast': { theme: 'dark', highContrast: true } };
+// El nombre accesible puede llevar un sufijo (p. ej. «Mis grupos, 1 solicitud pendiente»).
+const named = (name) => new RegExp(`^${name}`);
 
 (async () => {
   fs.mkdirSync(out, { recursive: true });
@@ -32,7 +34,7 @@ const modePrefs = { normal: {}, large: { largeText: true }, contrast: { highCont
       await page.goto(BASE, { waitUntil: 'networkidle' });
       await page.waitForSelector('#av-main');
       for (const [slug, name] of tabs) {
-        await page.getByRole('button', { name, exact: true }).filter({ visible: true }).first().click();
+        await page.getByRole('button', { name: named(name) }).filter({ visible: true }).first().click();
         await page.waitForTimeout(250);
         const scroll = await page.evaluate(() => document.documentElement.scrollWidth);
         if (scroll > width) problems.push(`${mode} ${width}px ${slug}: scrollWidth ${scroll}`);

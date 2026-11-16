@@ -9,10 +9,10 @@
  * .av-contrast redefine sus propias variables en el contenedor de la app, por
  * lo que siempre gana sobre el tema oscuro.
  *
- * El tema oscuro se activa con data-theme="dark" en <html>, o con
- * data-theme="system" cuando el sistema operativo prefiere oscuro. Hasta que la
- * Fase 2 añada el selector en Preferencias nadie fija data-theme, así que la
- * apariencia actual no cambia.
+ * El tema oscuro se activa con data-theme="dark" en <html>. src/hooks/useTheme.ts
+ * (y un script en index.html, antes del primer pintado) resuelve la preferencia
+ * del usuario —"system" | "light" | "dark", en Preferencias— al valor efectivo.
+ * El bloque data-theme="system" + prefers-color-scheme queda como respaldo.
  */
 
 /* ---------- Fuentes autoalojadas (SIL OFL, ver public/fonts/) ---------- */
@@ -79,7 +79,12 @@
   --av-text-base: 1rem;
   --av-text-lg: 1.125rem;
   --av-text-xl: 1.3rem;
-  --av-text-display: clamp(2rem, 4vw, 3.2rem);
+  /* Escala fluida (razón ~1.25 en móvil → ~1.333 en escritorio) */
+  --av-text-display: clamp(2rem, 1.45rem + 2.4vw, 3.2rem);
+  /* En em para que escalen con «Texto 200 %» (.av-large). */
+  --av-text-h2: clamp(1.2em, 1.08em + 0.5vw, 1.45em);
+  --av-text-h3: clamp(1.05em, 1em + 0.25vw, 1.15em);
+  --av-text-amount: clamp(1.7em, 1.35em + 1.5vw, 2.4em);
   --av-leading-body: 1.6;
   --av-leading-tight: 1.15;
 

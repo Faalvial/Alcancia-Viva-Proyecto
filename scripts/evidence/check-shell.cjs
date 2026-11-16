@@ -94,10 +94,11 @@ const check = async (name, fn) => { await fn(); console.log('✓', name); };
   await check('tablet: rail de 72 px con tooltip y nombre accesible', async () => {
     const nav = await page.locator('.av-nav').boundingBox();
     assert.ok(nav.width <= 72, String(nav.width));
-    const item = page.getByRole('button', { name: 'Mis grupos', exact: true });
+    const item = page.getByRole('button', { name: /^Mis grupos/ });
     await item.hover();
     const tip = await item.evaluate(el => getComputedStyle(el, '::after').content);
     assert.equal(tip, '"Mis grupos"');
+    assert.match(await item.getAttribute('aria-label'), /^Mis grupos, 1 solicitud pendiente$/);
   });
   await page.close();
 
