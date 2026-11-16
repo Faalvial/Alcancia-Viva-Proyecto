@@ -9,7 +9,7 @@ import { ALL_SPACES, gardenSummary, goalsForScope, movementPreset } from './gard
 import { Garden, GoalCard } from './GardenView';
 import { MovementHistory } from './MovementHistory';
 import { AssistantQuestionForm } from './AssistantQuestionForm';
-import { AnswerAudio } from './AnswerAudio';
+import { AssistantAnswer } from './AnswerAudio';
 import { SpeechService } from '../services/voice/speechService';
 import { useDictation } from '../hooks/useDictation';
 import { useKeyShortcut } from '../hooks/useKeyShortcut';
@@ -17,7 +17,12 @@ import { useSheetDrag } from '../hooks/useSheetDrag';
 import { AppNav } from '../components/AppNav';
 import type { TabId } from '../components/AppNav';
 import { UserAvatar } from '../components/UserAvatar';
-import { LogOut, MessageCircle, Monitor, Moon, Plus, Settings, Sun, Target, Users } from 'lucide-react';
+import { LogOut, MessageCircle, Mic, Monitor, Moon, Plus, Settings, Sun, Target, Users, Volume2 } from 'lucide-react';
+import { VoiceSheet } from '../components/VoiceSheet';
+import type { VoiceDraft } from '../services/voice/intents';
+import { playEarcon, vibrate } from '../services/voice/earcons';
+import { SPEECH_RATES } from '../services/voice/voices';
+import { goalPercent, growthStage } from './garden';
 import { Toast } from '../components/Toast';
 import type { ToastData } from '../components/Toast';
 import { EmptyState } from '../components/EmptyState';
@@ -32,8 +37,8 @@ import './live.css';
 import '../components/components.css';
 
 // El tema solo existe en el cliente: preferences es JSON en Supabase y no requiere migración.
-type AppPreferences = Preferences & { theme: ThemePreference };
-const defaults: AppPreferences = { weeklyBudget:300,highContrast:false,largeText:false,reducedMotion:false,simple:false,audio:false,theme:'system' };
+type AppPreferences = Preferences & { theme: ThemePreference; speechRate: number };
+const defaults: AppPreferences = { weeklyBudget:300,highContrast:false,largeText:false,reducedMotion:false,simple:false,audio:false,theme:'system',speechRate:1 };
 const themeOptions = [['system','Según el sistema',Monitor],['light','Claro',Sun],['dark','Oscuro',Moon]] as const;
 const statusNames: Record<string,string> = {pending:'Pendiente de aprobación',approved:'Aprobada',rejected:'Rechazada'};
 const movementNames = {expense:'Gasto',income:'Ingreso',savings:'Ahorro'};
@@ -132,6 +137,8 @@ function Workspace({session}:{session:Session}) {
   const [peopleByGroup,setPeopleByGroup]=useState<Record<string,{members:Member[];requests:Request[]}>>({});
   const [composer,setComposer]=useState(false),[pending,setPending]=useState(0);
   const [composerGoalId,setComposerGoalId]=useState(''),[selectedGoalId,setSelectedGoalId]=useState('');
+  const [composerDraft,setComposerDraft]=useState<VoiceDraft|null>(null),[voiceOpen,setVoiceOpen]=useState(false);
+  const [systemReduced,setSystemReduced]=useState(()=>matchMedia('(prefers-reduced-motion: reduce)').matches);
   const [watering,setWatering]=useState<{goalId:string;nonce:number}|null>(null);
   const [today,setToday]=useState(()=>localDate());
   const [notice,setNotice]=useState(''),[chat,setChat]=useState<{question:string;answer:string}[]>([]);
@@ -152,10 +159,13 @@ function Workspace({session}:{session:Session}) {
   const spent=currentExpenses.reduce((s,m)=>s+m.amount,0);
   const garden=gardenSummary(selectedGoals);
   const groupAdmin=Boolean(selectedGroup&&data.roles[groupId]==='admin');
-  function openComposer(goal?:Goal){setComposerGoalId(goal?.id||'');setComposer(true);}
+  function openComposer(goal?:Goal,draft:VoiceDraft|null=null){setComposerGoalId(goal?.id||'');setComposerDraft(draft);setComposer(true);}
+  const reducedMotion=prefs.reducedMotion||systemReduced;
+  useEffect(()=>{const query=matchMedia('(prefers-reduced-motion: reduce)');const change=()=>setSystemReduced(query.matches);query.addEventListener('change',change);return()=>query.removeEventListener('change',change);},[]);
+  useEffect(()=>{SpeechService.init();SpeechService.setRate(prefs.speechRate);},[prefs.speechRate]);
   function goTo(id:TabId){setTab(id);window.scrollTo({top:0});}
   const signOut=()=>requireDatabase().auth.signOut();
-  useKeyShortcut('n',()=>openComposer(),Boolean(profile)&&!composer);
+  useKeyShortcut('n',()=>openComposer(),Boolean(profile)&&!composer&&!voiceOpen);
   useEffect(()=>{const timer=window.setInterval(()=>setToday(localDate()),60000);return()=>window.clearInterval(timer);},[]);
   useEffect(()=>{if(!watering)return;const timer=window.setTimeout(()=>setWatering(null),1600);return()=>window.clearTimeout(timer);},[watering]);
   const refresh=useCallback(async()=>{
@@ -237,7 +247,14 @@ function Workspace({session}:{session:Session}) {
   }
   async function saveMovement(m:Movement,phrase:string,originalCategory:string){
     if(!online){writeQueue([...readQueue(),m]);setMessage('Guardado como pendiente en este dispositivo. Se sincronizará al recuperar conexión.',{type:m.type,tone:'info'});return;}
+    const target=m.type==='savings'?data.goals.find(g=>g.id===m.goal_id):undefined;
     await saveRemote(m);
+    vibrate('success');
+    if(target&&target.target_amount>0){
+      // Cambio de etapa de la planta: vibración y earcon (HU-13, FR-18).
+      const after=growthStage(Math.min(100,(target.current_amount+m.amount)/target.target_amount*100));
+      if(after>growthStage(goalPercent(target))){vibrate('stage');playEarcon('success',prefs.audio);}
+    }
     setMessage(m.type==='savings'?`${soles(m.amount)} sumados a ${data.goals.find(g=>g.id===m.goal_id)?.title}.`: `${movementNames[m.type]} de ${soles(m.amount)} guardado.`,
       {type:m.type,action:{label:'Deshacer',onClick:()=>act(async()=>{await rpc('reverse_movement',{p_id:m.id});await refresh();setMessage('Movimiento revertido; actualizamos el avance.',{tone:'info'});})}});
     if(profile&&phrase&&m.type==='expense'&&originalCategory!==m.category){
@@ -248,8 +265,10 @@ function Workspace({session}:{session:Session}) {
     await refresh();
     if(m.type==='savings'&&m.goal_id)setWatering({goalId:m.goal_id,nonce:Date.now()});
   }
-  async function askAssistant(e:React.FormEvent){
-    e.preventDefault();const question=assistantQuestion.trim();if(!question)return;
+  async function askAssistant(e:React.FormEvent){e.preventDefault();await askQuestion(assistantQuestion);}
+  async function askQuestion(text:string){
+    const question=text.trim();if(!question)return;
+    setAssistantQuestion(question);
     await act(async()=>{
       const {data:reply,error}=await requireDatabase().functions.invoke('financial-assistant',{body:{action:'advice',question}});
       if(error)throw new Error('El asistente aún no está disponible. Tus registros no se han modificado.');
@@ -269,6 +288,7 @@ function Workspace({session}:{session:Session}) {
     <header className="av-header safe-top"><a className="av-brand" href="#av-main"><BrandIcon/> Alcancía Viva</a>
       <div className="av-header-actions">
         <p className="av-connection" role="status" data-state={!online?'offline':connected?'online':'connecting'}><span className="av-connection-dot" aria-hidden="true"/><span className="av-connection-text">{!online?'Sin conexión':connected?'Conectado en tiempo real':'Conectando actualizaciones…'}</span></p>
+        <button type="button" className="av-secondary av-with-icon av-header-voice" data-voice-entry onClick={()=>setVoiceOpen(true)}><Mic size={24} aria-hidden="true"/>Hablar</button>
         <span className="av-user"><UserAvatar name={profile.display_name}/><span className="av-user-name">{profile.display_name}</span></span>
         <button type="button" className="av-secondary av-icon-button av-header-settings" aria-label="Preferencias" aria-current={tab==='settings'?'page':undefined} onClick={()=>goTo('settings')}><Settings size={24} aria-hidden="true"/></button>
         <button type="button" className="av-secondary av-header-logout" onClick={signOut}>Salir</button>
@@ -312,7 +332,7 @@ function Workspace({session}:{session:Session}) {
       {tab==='history'&&<MovementHistory snapshot={data} profile={profile} scope={groupId} busy={busy} onRegister={()=>openComposer()} onUndo={id=>act(async()=>{await rpc('reverse_movement',{p_id:id});await refresh();setMessage('Movimiento revertido; actualizamos el avance.');})}/>}
       {tab==='assistant'&&<><h1>Un paso a la vez</h1><p>Soy el asistente de IA de Alcancía Viva. Puedo ayudarte a comprender tus registros; las propuestas no mueven dinero ni crean aportes.</p>
         {!chat.length&&<EmptyState title="Pregunta lo que quieras entender" text="Por ejemplo: «¿En qué gasté más esta semana?» o «¿Cuánto me falta para mi laptop?». Puedes escribir o dictar." action={{label:'Escribir una pregunta',icon:<MessageCircle size={24} aria-hidden="true"/>,onClick:()=>document.getElementById('av-assistant-question')?.focus()}}/>}
-        <div role="log" aria-label="Conversación con el asistente" aria-live="polite">{chat.map((item,i)=><section className="av-card" key={i}><p><strong>Tú:</strong> {item.question}</p><p><strong>Asistente:</strong> {item.answer}</p><AnswerAudio answer={item.answer}/></section>)}</div>
+        <div role="log" aria-label="Conversación con el asistente" aria-live="polite">{chat.map((item,i)=><section className="av-card" key={i}><p><strong>Tú:</strong> {item.question}</p><AssistantAnswer answer={item.answer} highlight={!reducedMotion}/></section>)}</div>
         <AssistantQuestionForm question={assistantQuestion} onQuestion={setAssistantQuestion} busy={busy||composer} onSubmit={askAssistant}/></>}
       {tab==='settings'&&<><h1>A tu manera</h1><section className="av-card"><h2>Preferencias de accesibilidad</h2>
         {([['highContrast','Alto contraste'],['largeText','Texto grande (200 %)'],['reducedMotion','Reducir movimiento'],['simple','Mensajes sencillos'],['audio','Leer confirmaciones en voz alta']] as const).map(([key,label])=><label className="av-check" key={key}><input type="checkbox" checked={prefs[key]} disabled={busy} onChange={e=>act(async()=>{await updateProfile({...profile,preferences:{...prefs,[key]:e.target.checked}});setMessage('Preferencia guardada.');})}/>{label}</label>)}
@@ -320,6 +340,9 @@ function Workspace({session}:{session:Session}) {
           {themeOptions.map(([value,label,Icon])=><label className="av-theme-option" key={value}><input type="radio" name="av-theme" value={value} checked={prefs.theme===value} disabled={busy} onChange={()=>act(async()=>{await updateProfile({...profile,preferences:{...prefs,theme:value} as Profile['preferences']});setMessage('Tema actualizado.');})}/><Icon size={24} aria-hidden="true"/><span>{label}</span></label>)}
           <p>El alto contraste, si está activado, tiene prioridad sobre el tema.</p>
         </fieldset>
+        <div className="av-rate"><label>Velocidad de la voz<select value={String(prefs.speechRate)} disabled={busy} onChange={e=>{const speechRate=Number(e.target.value);act(async()=>{await updateProfile({...profile,preferences:{...prefs,speechRate} as Profile['preferences']});setMessage('Velocidad de la voz guardada.');});}}>
+          {SPEECH_RATES.map(rate=><option key={rate} value={String(rate)}>{rate===1?'Normal (1×)':`${rate.toLocaleString('es-PE')}×${rate<1?' (más lenta)':' (más rápida)'}`}</option>)}</select></label>
+          <button type="button" className="av-secondary av-with-icon" disabled={!SpeechService.isSynthesisSupported()} onClick={()=>SpeechService.speak('Así sonará Alcancía Viva cuando te lea una respuesta.',prefs.speechRate)}><Volume2 size={24} aria-hidden="true"/>Probar voz</button></div>
         <label>Presupuesto semanal en soles<input type="number" min="1" step="0.01" defaultValue={prefs.weeklyBudget} onBlur={e=>{const amount=Number(e.target.value);if(amount>0)act(async()=>{await updateProfile({...profile,preferences:{...prefs,weeklyBudget:amount}});setMessage('Presupuesto actualizado.');});}}/></label>
         <p>Las correcciones de categoría se recuerdan. Tras tres correcciones iguales para la misma frase, se proponen en futuros registros.</p>
         <button className="av-secondary" disabled={busy} onClick={()=>act(async()=>{await updateProfile({...profile,learned_categories:{}});setMessage('Aprendizaje de categorías reiniciado.');})}>Reiniciar categorías aprendidas</button>
@@ -330,8 +353,12 @@ function Workspace({session}:{session:Session}) {
         <button type="button" className="av-secondary av-with-icon" onClick={signOut}><LogOut size={24} aria-hidden="true"/>Cerrar sesión</button></section></>}
     </main></div>
     <Toast toast={toast} onDismiss={()=>setToast(null)}/>
+    <button type="button" className="av-secondary av-fab-voice" aria-label="Hablar" data-voice-entry onClick={()=>setVoiceOpen(true)}><Mic size={24} aria-hidden="true"/></button>
     <button type="button" className="av-fab" aria-label="Registrar movimiento" aria-keyshortcuts="n" onClick={()=>openComposer()}><Plus size={24} aria-hidden="true"/></button>
-    {composer&&<MovementComposer data={data} profile={profile} groupId={selectedGroup?.id||''} initialGoalId={composerGoalId} audio={prefs.audio} onClose={()=>setComposer(false)} onSave={saveMovement}/>}
+    {composer&&<MovementComposer data={data} profile={profile} groupId={selectedGroup?.id||''} initialGoalId={composerGoalId} initialDraft={composerDraft} audio={prefs.audio} onClose={()=>{setComposer(false);setComposerDraft(null);}} onSave={saveMovement}/>}
+    {voiceOpen&&<VoiceSheet reduced={reducedMotion} goals={data.goals} movements={mine} profile={profile} today={today} weeklyBudget={prefs.weeklyBudget} audio={prefs.audio}
+      onNavigate={tab=>goTo(tab)} onAsk={question=>{goTo('assistant');void askQuestion(question);}} onSave={saveMovement}
+      onOpenComposer={draft=>{setVoiceOpen(false);openComposer(undefined,draft);}} onClose={()=>setVoiceOpen(false)}/>}
   </div>;
 }
 
@@ -344,19 +371,21 @@ function GroupForms({busy,onCreate,onJoin}:{busy:boolean;onCreate:(name:string)=
     <form className="av-card" onSubmit={e=>{e.preventDefault();onJoin(String(new FormData(e.currentTarget).get('code')));}}><h2>Unirme a un grupo</h2><label>Código de invitación<input name="code" required defaultValue={new URLSearchParams(location.search).get('invite')||''}/></label><button disabled={busy}>Solicitar ingreso</button></form></div>;
 }
 
-function MovementComposer({data,profile,groupId,initialGoalId,audio,onClose,onSave}:{data:Snapshot;profile:Profile;groupId:string;initialGoalId:string;audio:boolean;onClose:()=>void;onSave:(m:Movement,phrase:string,category:string)=>Promise<void>}) {
+function MovementComposer({data,profile,groupId,initialGoalId,initialDraft=null,audio,onClose,onSave}:{data:Snapshot;profile:Profile;groupId:string;initialGoalId:string;initialDraft?:VoiceDraft|null;audio:boolean;onClose:()=>void;onSave:(m:Movement,phrase:string,category:string)=>Promise<void>}) {
   const dialog=useRef<HTMLDialogElement>(null),phraseInput=useRef<HTMLTextAreaElement>(null);
   const previousFocus=useRef(document.activeElement as HTMLElement|null);
   const id=useRef(crypto.randomUUID()),processing=useRef(false);
   const preset=movementPreset(data.goals,groupId,initialGoalId);
-  const [phrase,setPhrase]=useState(''),[type,setType]=useState<Movement['type']|''>(preset.type),[amount,setAmount]=useState(''),[category,setCategory]=useState('');
-  const [goalId,setGoalId]=useState(preset.goalId),[destination,setDestination]=useState(preset.destination),[source,setSource]=useState<Movement['source']>('manual');
-  const [error,setError]=useState(''),[info,setInfo]=useState(''),[busy,setBusy]=useState(false),[originalCategory,setOriginalCategory]=useState('');
+  // Borrador que llega desde la voz («Prefiero escribir», «No, corregir» o repreguntas agotadas).
+  const draftGoal=initialDraft?.goalId?data.goals.find(g=>g.id===initialDraft.goalId):undefined;
+  const [phrase,setPhrase]=useState(initialDraft?.text||''),[type,setType]=useState<Movement['type']|''>(initialDraft?initialDraft.type:preset.type),[amount,setAmount]=useState(initialDraft?.amount?String(initialDraft.amount):''),[category,setCategory]=useState(initialDraft?.category||'');
+  const [goalId,setGoalId]=useState(draftGoal?draftGoal.id:preset.goalId),[destination,setDestination]=useState(draftGoal?draftGoal.group_id||'':preset.destination),[source,setSource]=useState<Movement['source']>(initialDraft?'voice':'manual');
+  const [error,setError]=useState(''),[info,setInfo]=useState(initialDraft?'Revisa lo que entendí por voz y completa lo que falte antes de guardar.':''),[busy,setBusy]=useState(false),[originalCategory,setOriginalCategory]=useState('');
   const [date,setDate]=useState(localDate());
   const dictation=useDictation({onText:setPhrase,onDone:text=>applyInterpretation(text,true),maxLength:500,messages:movementDictation});
   const listening=dictation.listening;
   const sheetDrag=useSheetDrag(dialog,{onClose,disabled:busy});
-  useEffect(()=>{dialog.current?.showModal();phraseInput.current?.focus();return()=>{previousFocus.current?.focus();};},[]);
+  useEffect(()=>{dialog.current?.showModal();phraseInput.current?.focus();return()=>{const target=previousFocus.current;if(target?.isConnected)target.focus();else [...document.querySelectorAll<HTMLElement>('[data-voice-entry]')].find(el=>el.offsetParent)?.focus();};},[]);
   function applyInterpretation(text:string,voice=false){
     const r=interpretLocally(text,data.goals,profile);setType(r.type);setAmount(r.amount);setCategory(r.category);setOriginalCategory(r.category);setGoalId(r.goalId);setSource(voice?'voice':'text');
     if(r.goalId)setDestination(data.goals.find(g=>g.id===r.goalId)?.group_id||'');

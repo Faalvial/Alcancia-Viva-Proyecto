@@ -77,7 +77,9 @@ function sampleData(preferences) {
 
 // Opciones: preferences (se mezclan con las del perfil), signedIn, empty (cuenta sin
 // grupos, metas ni movimientos) y profileDelay (ms de espera del perfil, para ver la carga).
-async function mockBackend(page, { preferences = {}, signedIn = true, empty = false, profileDelay = 0 } = {}) {
+// assistantAnswer: texto que devuelve el asistente simulado (si no, responde que no está disponible).
+// transcribeText: texto de la acción «transcribe» (respaldo de voz con grabación).
+async function mockBackend(page, { preferences = {}, signedIn = true, empty = false, profileDelay = 0, assistantAnswer = '', transcribeText = '' } = {}) {
   const data = sampleData(preferences);
   if (empty) {
     for (const key of Object.keys(data.tables)) data.tables[key] = [];
@@ -96,7 +98,12 @@ async function mockBackend(page, { preferences = {}, signedIn = true, empty = fa
     if (path.startsWith('/auth/v1/user')) return json(session.user);
     if (path.startsWith('/auth/v1/logout')) return route.fulfill({ status: 204 });
     if (path.startsWith('/auth/v1/')) return json(session);
-    if (path.startsWith('/functions/v1/')) return json({ error: 'Asistente simulado sin conexión.' });
+    if (path.startsWith('/functions/v1/')) {
+      const body = JSON.parse(request.postData() || '{}');
+      if (body.action === 'advice' && assistantAnswer) return json({ answer: assistantAnswer });
+      if (body.action === 'transcribe' && transcribeText) return json({ text: transcribeText });
+      return json({ error: 'Asistente simulado sin conexión.' });
+    }
     if (path.startsWith('/rest/v1/rpc/')) {
       const name = path.split('/').pop();
       return json(name in data.rpc ? data.rpc[name] : null);

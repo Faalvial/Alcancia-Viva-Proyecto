@@ -936,3 +936,254 @@
   position: static;
   margin-top: 0.25rem;
 }
+
+/* ===================== Fase 3: voz conversacional ===================== */
+
+/* Entrada «Hablar»: en el header desde tablet; en móvil, botón secundario a la
+   izquierda del FAB. */
+.av-app .av-fab-voice {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .av-header-voice {
+    display: none !important;
+  }
+  .av-app .av-fab-voice {
+    display: grid;
+    place-items: center;
+    position: fixed;
+    z-index: 31;
+    right: calc(max(1rem, env(safe-area-inset-right, 0px)) + 56px + 0.75rem);
+    bottom: calc(var(--av-tabbar-height) + 1rem + 4px + env(safe-area-inset-bottom, 0px));
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    border-radius: var(--av-radius-pill);
+    box-shadow: var(--av-shadow-md);
+  }
+}
+
+/* Panel de voz: bottom sheet en móvil (reglas de .av-dialog) y panel flotante en escritorio. */
+@media (min-width: 768px) {
+  .av-voice-sheet {
+    width: min(420px, calc(100% - 3rem));
+    margin: auto 1.5rem 1.5rem auto;
+    box-shadow: var(--av-shadow-lg);
+  }
+  .av-voice-sheet::backdrop {
+    background: rgb(16 37 25 / 0.25);
+    backdrop-filter: none;
+  }
+}
+
+.av-voice-sheet {
+  text-align: center;
+}
+
+.av-voice-sheet .av-dialog-title {
+  text-align: left;
+}
+
+.av-app .av-voice-transcript {
+  min-height: 2.6em;
+  margin: 0.5rem 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.35em, 1.1em + 1.2vw, 1.75em);
+  line-height: 1.25;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.av-app .av-voice-transcript.is-empty {
+  color: var(--muted);
+}
+
+.av-app .av-voice-prompt {
+  margin: 0.25rem 0 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--av-radius-md);
+  background: var(--c-ahorro-soft);
+  color: var(--ink);
+  font-weight: 550;
+}
+
+.av-voice-actions,
+.av-voice-confirm {
+  justify-content: center;
+  margin: 0.5rem 0;
+}
+
+.av-voice-help {
+  margin-top: 0.75rem;
+  text-align: left;
+}
+
+.av-app .av-voice-help ul {
+  margin: 0.5rem 0;
+}
+
+/* Indicador de escucha */
+.av-listening {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0.25rem;
+}
+
+.av-listening-ring {
+  --av-level: 0;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 6.5rem;
+  height: 6.5rem;
+}
+
+.av-listening-ring::before,
+.av-listening-ring::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--av-radius-pill);
+  background: var(--c-ahorro-soft);
+}
+
+.av-listening-ring::after {
+  inset: 0.75rem;
+  border: 2px solid var(--c-ahorro);
+  background: transparent;
+  opacity: 0.6;
+}
+
+.av-listening-core {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 4rem;
+  height: 4rem;
+  border-radius: var(--av-radius-pill);
+  background: var(--accent);
+  color: var(--av-on-accent);
+}
+
+.av-listening--notHeard .av-listening-core,
+.av-listening--unsupported .av-listening-core,
+.av-listening--idle .av-listening-core,
+.av-listening--answer .av-listening-core {
+  background: var(--card);
+  color: var(--muted);
+  border: 2px solid var(--line);
+}
+
+/* Volumen real: el halo crece con --av-level. */
+.av-listening.is-live .av-listening-ring::before {
+  transform: scale(calc(0.8 + var(--av-level) * 0.55));
+  transition: transform 80ms linear;
+}
+
+.av-listening.is-live .av-listening-ring::after {
+  transform: scale(calc(0.9 + var(--av-level) * 0.35));
+  transition: transform 80ms linear;
+}
+
+/* Sin permiso de micrófono: latido fijo. */
+.av-listening.is-fixed .av-listening-ring::before {
+  animation: av-listen-pulse 1.4s var(--av-ease-in-out) infinite;
+}
+
+/* Procesando: el anillo gira despacio. */
+.av-listening--processing .av-listening-ring::after,
+.av-listening--saving .av-listening-ring::after {
+  border-style: dashed;
+  animation: av-listen-spin 2.4s linear infinite;
+}
+
+/* Movimiento reducido: indicador estático. */
+.av-listening.is-still .av-listening-ring::before {
+  transform: none;
+  animation: none;
+}
+
+@keyframes av-listen-pulse {
+  0%,
+  100% {
+    transform: scale(0.82);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes av-listen-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+.av-app .av-listening-label {
+  margin: 0;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.av-still .av-listening-ring::before,
+.av-still .av-listening-ring::after {
+  animation: none !important;
+  transform: none !important;
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .av-listening-ring::before,
+  .av-listening-ring::after {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+.av-contrast .av-listening-ring::before {
+  background: transparent;
+  border: 2px solid var(--ink);
+}
+
+/* Palabra que se está leyendo en voz alta. */
+.av-spoken-word {
+  background: var(--c-ingreso-soft);
+  color: var(--ink);
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px var(--c-ingreso-soft);
+}
+
+.av-contrast .av-spoken-word {
+  background: var(--accent);
+  color: #000;
+}
+
+/* Preferencias: velocidad de la voz */
+.av-rate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.av-app .av-rate label {
+  margin-bottom: 0;
+}
+
+/* Tablet: solo el punto de conexión (el texto se sigue anunciando) para que el
+   header con «Hablar» quepa en una línea. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .av-connection:not([data-state="offline"]) .av-connection-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
