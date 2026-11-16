@@ -11,11 +11,30 @@ import { MovementHistory } from './MovementHistory';
 import { AssistantQuestionForm } from './AssistantQuestionForm';
 import { AnswerAudio } from './AnswerAudio';
 import { SpeechService } from '../services/voice/speechService';
+import { useDictation } from '../hooks/useDictation';
+import type { DictationMessages } from '../services/voice/questionDictation';
 import './live.css';
 
 const defaults: Preferences = { weeklyBudget:300,highContrast:false,largeText:false,reducedMotion:false,simple:false,audio:false };
 const statusNames: Record<string,string> = {pending:'Pendiente de aprobación',approved:'Aprobada',rejected:'Rechazada'};
 const movementNames = {expense:'Gasto',income:'Ingreso',savings:'Ahorro'};
+const movementDictation: Partial<DictationMessages> = {
+  listening:'Micrófono activo. Escuchando…',
+  interim:'Escuchando… Revisarás lo interpretado antes de guardar.',
+  limit:'Llegaste al límite de 500 caracteres. Detén el micrófono para revisar.',
+  heard:'Revisa lo interpretado antes de guardar.',
+  noSpeech:'No se detectó voz. Puedes volver a dictar o escribir tu movimiento.',
+  stopped:'Micrófono detenido. Puedes editar el texto y pulsar «Interpretar texto».',
+  startFailed:'No se pudo iniciar el micrófono. Puedes escribir o completar los campos.',
+  genericError:'No se pudo captar la voz. Revisa el permiso del micrófono o escribe tu movimiento.',
+  errors:{
+    'not-allowed':'Permite el micrófono en tu navegador o escribe tu movimiento.',
+    'service-not-allowed':'El navegador no permite el dictado. Puedes escribir tu movimiento.',
+    'audio-capture':'No encontramos un micrófono disponible. Puedes escribir tu movimiento.',
+    'no-speech':'No se detectó voz. Puedes volver a dictar o escribir tu movimiento.',
+    'network':'No se pudo conectar el reconocimiento de voz. Puedes escribir tu movimiento.',
+  },
+};
 const errorMessage = (e:unknown) => e instanceof Error ? e.message : 'No pudimos completar la acción. Conservamos tus datos para reintentar.';
 
 function BrandIcon() {
@@ -31,7 +50,7 @@ export function CollaborativeApp() {
     if(!database){setReady(true);return;}
     database.auth.getSession().then(({data})=>{setSession(data.session);setReady(true);});
     const {data}=database.auth.onAuthStateChange((_event,s)=>{setSession(s);setReady(true);});
-    return()=>{data.subscription.unsubscribe();SpeechService.stopSpeaking();SpeechService.stopListening();};
+    return()=>{data.subscription.unsubscribe();SpeechService.stopSpeaking();};
   },[]);
   if(!ready)return <main className="av-page"><p role="status">Preparando tu espacio…</p></main>;
   if(!database)return <main className="av-page"><h1>Alcancía Viva</h1><p>Configura la conexión con Supabase para usar las cuentas y los grupos.</p></main>;
@@ -210,7 +229,7 @@ function Workspace({session}:{session:Session}) {
     <button className="av-link" onClick={()=>requireDatabase().auth.signOut()}>Cerrar sesión</button></section></main>;
   return <div className={`av-app ${prefs.highContrast?'av-contrast':''} ${prefs.largeText?'av-large':''} ${prefs.reducedMotion?'av-still':''}`}>
     <a className="av-skip" href="#av-main">Saltar al contenido</a>
-    <header className="av-header"><a className="av-brand" href="#av-main"><BrandIcon/> Alcancía Viva</a>
+    <header className="av-header safe-top"><a className="av-brand" href="#av-main"><BrandIcon/> Alcancía Viva</a>
       <div><span>{profile.display_name}</span><button className="av-secondary" onClick={()=>requireDatabase().auth.signOut()}>Salir</button></div></header>
     <div className="av-layout"><nav aria-label="Navegación principal" className="av-nav">
       {[['garden','Mi jardín'],['goals','Metas'],['groups','Mis grupos'],['history','Movimientos'],['assistant','Asistente'],['settings','Preferencias']].map(([id,title])=><button key={id} aria-current={tab===id?'page':undefined} onClick={()=>setTab(id)}>{title}</button>)}
@@ -283,9 +302,11 @@ function MovementComposer({data,profile,groupId,initialGoalId,audio,onClose,onSa
   const preset=movementPreset(data.goals,groupId,initialGoalId);
   const [phrase,setPhrase]=useState(''),[type,setType]=useState<Movement['type']|''>(preset.type),[amount,setAmount]=useState(''),[category,setCategory]=useState('');
   const [goalId,setGoalId]=useState(preset.goalId),[destination,setDestination]=useState(preset.destination),[source,setSource]=useState<Movement['source']>('manual');
-  const [error,setError]=useState(''),[info,setInfo]=useState(''),[listening,setListening]=useState(false),[busy,setBusy]=useState(false),[originalCategory,setOriginalCategory]=useState('');
+  const [error,setError]=useState(''),[info,setInfo]=useState(''),[busy,setBusy]=useState(false),[originalCategory,setOriginalCategory]=useState('');
   const [date,setDate]=useState(localDate());
-  useEffect(()=>{dialog.current?.showModal();phraseInput.current?.focus();return()=>{SpeechService.stopListening();previousFocus.current?.focus();};},[]);
+  const dictation=useDictation({onText:setPhrase,onDone:text=>applyInterpretation(text,true),maxLength:500,messages:movementDictation});
+  const listening=dictation.listening;
+  useEffect(()=>{dialog.current?.showModal();phraseInput.current?.focus();return()=>{previousFocus.current?.focus();};},[]);
   function applyInterpretation(text:string,voice=false){
     const r=interpretLocally(text,data.goals,profile);setType(r.type);setAmount(r.amount);setCategory(r.category);setOriginalCategory(r.category);setGoalId(r.goalId);setSource(voice?'voice':'text');
     if(r.goalId)setDestination(data.goals.find(g=>g.id===r.goalId)?.group_id||'');
@@ -305,10 +326,9 @@ function MovementComposer({data,profile,groupId,initialGoalId,audio,onClose,onSa
     }catch{setInfo('Interpretación local. Completa los datos que falten.');}finally{processing.current=false;setBusy(false);}
   }
   function voice(){
-    if(listening){SpeechService.stopListening();setListening(false);return;}
-    if(!SpeechService.isRecognitionSupported()){setError('Este navegador no reconoce voz. Puedes escribir o completar los campos.');phraseInput.current?.focus();return;}
-    SpeechService.stopSpeaking();setError('');setListening(true);
-    SpeechService.startListening(result=>{setPhrase(result.transcript);if(result.isFinal){applyInterpretation(result.transcript,true);setListening(false);}},()=>{setListening(false);setError('No se pudo captar la voz. Revisa el permiso del micrófono o escribe tu movimiento.');},()=>setListening(false));
+    if(listening){dictation.stop();phraseInput.current?.focus();return;}
+    if(!dictation.supported){setError('Este navegador no reconoce voz. Puedes escribir o completar los campos.');phraseInput.current?.focus();return;}
+    SpeechService.stopSpeaking();setError('');setInfo('');dictation.start('');
   }
   async function submit(e:React.FormEvent){
     e.preventDefault();setError('');
@@ -330,7 +350,7 @@ function MovementComposer({data,profile,groupId,initialGoalId,audio,onClose,onSa
     <p>Puedes hablar, escribir o completar los datos. Confirma el destino antes de guardar.</p>
     <label>Describe tu movimiento<textarea ref={phraseInput} value={phrase} onChange={e=>setPhrase(e.target.value)} placeholder="Ahorré 100 soles para mi laptop" maxLength={500}/></label>
     <div className="av-actions"><button type="button" className="av-secondary" aria-pressed={listening} onClick={voice} disabled={busy}>{listening?'Detener micrófono':'Dictar movimiento'}</button><button type="button" disabled={busy||!phrase.trim()} onClick={interpret}>{busy?'Interpretando…':'Interpretar texto'}</button></div>
-    <p role="status" aria-live="polite">{listening?'Micrófono activo. Escuchando…':info}</p>
+    <p role="status" aria-live="polite">{listening?dictation.status:(info||dictation.status)}</p>
     <form onSubmit={submit}>
       <label>Tipo de movimiento<select value={type} required onChange={e=>setType(e.target.value as Movement['type'])}><option value="">Selecciona el tipo</option><option value="expense">Gasto</option><option value="income">Ingreso</option><option value="savings">Ahorro para una meta</option></select></label>
       <div className="av-fields"><label>Monto en soles<input type="number" min="0.01" step="0.01" required value={amount} onChange={e=>setAmount(e.target.value)}/></label><label>Fecha<input type="date" required value={date} onChange={e=>setDate(e.target.value)}/></label></div>
