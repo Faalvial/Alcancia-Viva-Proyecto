@@ -12,6 +12,12 @@ import { AssistantQuestionForm } from './AssistantQuestionForm';
 import { AnswerAudio } from './AnswerAudio';
 import { SpeechService } from '../services/voice/speechService';
 import { useDictation } from '../hooks/useDictation';
+import { useKeyShortcut } from '../hooks/useKeyShortcut';
+import { useSheetDrag } from '../hooks/useSheetDrag';
+import { AppNav } from '../components/AppNav';
+import type { TabId } from '../components/AppNav';
+import { UserAvatar } from '../components/UserAvatar';
+import { LogOut, Plus, Settings } from 'lucide-react';
 import type { DictationMessages } from '../services/voice/questionDictation';
 import './live.css';
 
@@ -130,6 +136,9 @@ function Workspace({session}:{session:Session}) {
   const garden=gardenSummary(selectedGoals);
   const groupAdmin=Boolean(selectedGroup&&data.roles[groupId]==='admin');
   function openComposer(goal?:Goal){setComposerGoalId(goal?.id||'');setComposer(true);}
+  function goTo(id:TabId){setTab(id);window.scrollTo({top:0});}
+  const signOut=()=>requireDatabase().auth.signOut();
+  useKeyShortcut('n',()=>openComposer(),Boolean(profile)&&!composer);
   useEffect(()=>{const timer=window.setInterval(()=>setToday(localDate()),60000);return()=>window.clearInterval(timer);},[]);
   useEffect(()=>{if(!watering)return;const timer=window.setTimeout(()=>setWatering(null),1600);return()=>window.clearTimeout(timer);},[watering]);
   const refresh=useCallback(async()=>{
@@ -230,14 +239,16 @@ function Workspace({session}:{session:Session}) {
   return <div className={`av-app ${prefs.highContrast?'av-contrast':''} ${prefs.largeText?'av-large':''} ${prefs.reducedMotion?'av-still':''}`}>
     <a className="av-skip" href="#av-main">Saltar al contenido</a>
     <header className="av-header safe-top"><a className="av-brand" href="#av-main"><BrandIcon/> Alcancía Viva</a>
-      <div><span>{profile.display_name}</span><button className="av-secondary" onClick={()=>requireDatabase().auth.signOut()}>Salir</button></div></header>
-    <div className="av-layout"><nav aria-label="Navegación principal" className="av-nav">
-      {[['garden','Mi jardín'],['goals','Metas'],['groups','Mis grupos'],['history','Movimientos'],['assistant','Asistente'],['settings','Preferencias']].map(([id,title])=><button key={id} aria-current={tab===id?'page':undefined} onClick={()=>setTab(id)}>{title}</button>)}
-      <p className="av-connection" role="status">{!online?'Sin conexión':connected?'Conectado en tiempo real':'Conectando actualizaciones…'}</p>
-    </nav>
+      <div className="av-header-actions">
+        <p className="av-connection" role="status" data-state={!online?'offline':connected?'online':'connecting'}><span className="av-connection-dot" aria-hidden="true"/><span className="av-connection-text">{!online?'Sin conexión':connected?'Conectado en tiempo real':'Conectando actualizaciones…'}</span></p>
+        <span className="av-user"><UserAvatar name={profile.display_name}/><span className="av-user-name">{profile.display_name}</span></span>
+        <button type="button" className="av-secondary av-icon-button av-header-settings" aria-label="Preferencias" aria-current={tab==='settings'?'page':undefined} onClick={()=>goTo('settings')}><Settings size={24} aria-hidden="true"/></button>
+        <button type="button" className="av-secondary av-header-logout" onClick={signOut}>Salir</button>
+      </div></header>
+    <div className="av-layout"><AppNav tab={tab} onChange={goTo}/>
     <main id="av-main" tabIndex={-1} className="av-main">
       <div className="av-toolbar"><label>Tu espacio<select value={groupId} onChange={e=>{setGroupId(e.target.value);setError('');}}><option value={ALL_SPACES}>Todas mis metas</option><option value="">Personal</option>{data.groups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select></label>
-        <button onClick={()=>openComposer()}>+ Registrar movimiento</button></div>
+        <button type="button" className="av-with-icon av-toolbar-register" aria-keyshortcuts="n" onClick={()=>openComposer()}><Plus size={24} aria-hidden="true"/>Registrar movimiento</button></div>
       <div role="status" aria-live="polite" className={message?'av-notice':''}>{message}</div>
       {error&&<p role="alert" className="av-error">{error}</p>}{notice&&<p className="av-notice">{notice}<button className="av-link" onClick={()=>setNotice('')}>Cerrar aviso</button></p>}
       {pending>0&&<p role="status">{pending} movimiento(s) pendiente(s). <button className="av-link" disabled={!online||busy} onClick={()=>act(flushQueue)}>Reintentar sincronización</button></p>}
@@ -280,8 +291,11 @@ function Workspace({session}:{session:Session}) {
         <button className="av-secondary" disabled={busy} onClick={()=>act(async()=>{await updateProfile({...profile,learned_categories:{}});setMessage('Aprendizaje de categorías reiniciado.');})}>Reiniciar categorías aprendidas</button>
         <button className="av-secondary" onClick={()=>{const blob=new Blob([JSON.stringify({profile,movements:mine,goals:data.goals.filter(g=>g.owner_id===userId)},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='alcancia-viva-mis-datos.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}}>Descargar mis datos</button>
         <details><summary>Ayuda y privacidad</summary><p>Para registrar, elige gasto, ingreso o ahorro. Un ahorro requiere meta. Para compartir, crea un grupo o solicita ingreso con un código y espera aprobación. Puedes usar texto sin micrófono; todas las acciones son accesibles mediante teclado. Usamos datos de práctica. Si consultas a la IA, se envía tu pregunta y un resumen de tus registros a Groq.</p></details>
-      </section></>}
+      </section>
+      <section className="av-card"><h2>Tu sesión</h2><p>Sesión iniciada como {profile.display_name}.</p>
+        <button type="button" className="av-secondary av-with-icon" onClick={signOut}><LogOut size={24} aria-hidden="true"/>Cerrar sesión</button></section></>}
     </main></div>
+    <button type="button" className="av-fab" aria-label="Registrar movimiento" aria-keyshortcuts="n" onClick={()=>openComposer()}><Plus size={24} aria-hidden="true"/></button>
     {composer&&<MovementComposer data={data} profile={profile} groupId={selectedGroup?.id||''} initialGoalId={composerGoalId} audio={prefs.audio} onClose={()=>setComposer(false)} onSave={saveMovement}/>}
   </div>;
 }
@@ -306,6 +320,7 @@ function MovementComposer({data,profile,groupId,initialGoalId,audio,onClose,onSa
   const [date,setDate]=useState(localDate());
   const dictation=useDictation({onText:setPhrase,onDone:text=>applyInterpretation(text,true),maxLength:500,messages:movementDictation});
   const listening=dictation.listening;
+  const sheetDrag=useSheetDrag(dialog,{onClose,disabled:busy});
   useEffect(()=>{dialog.current?.showModal();phraseInput.current?.focus();return()=>{previousFocus.current?.focus();};},[]);
   function applyInterpretation(text:string,voice=false){
     const r=interpretLocally(text,data.goals,profile);setType(r.type);setAmount(r.amount);setCategory(r.category);setOriginalCategory(r.category);setGoalId(r.goalId);setSource(voice?'voice':'text');
@@ -346,7 +361,8 @@ function MovementComposer({data,profile,groupId,initialGoalId,audio,onClose,onSa
   }
   const goals=data.goals.filter(g=>g.group_id===(destination||null));
   return <dialog ref={dialog} className="av-dialog" aria-labelledby="movement-title" onCancel={e=>{if(busy)e.preventDefault();else onClose();}}>
-    <div className="av-dialog-title"><h2 id="movement-title">Registrar movimiento</h2><button className="av-secondary" onClick={onClose} disabled={busy} aria-label="Cerrar registro">Cerrar</button></div>
+    <div className="av-sheet-grip" {...sheetDrag}><span className="av-sheet-handle" aria-hidden="true"/>
+      <div className="av-dialog-title"><h2 id="movement-title">Registrar movimiento</h2><button type="button" className="av-secondary" onClick={onClose} disabled={busy} aria-label="Cerrar registro">Cerrar</button></div></div>
     <p>Puedes hablar, escribir o completar los datos. Confirma el destino antes de guardar.</p>
     <label>Describe tu movimiento<textarea ref={phraseInput} value={phrase} onChange={e=>setPhrase(e.target.value)} placeholder="Ahorré 100 soles para mi laptop" maxLength={500}/></label>
     <div className="av-actions"><button type="button" className="av-secondary" aria-pressed={listening} onClick={voice} disabled={busy}>{listening?'Detener micrófono':'Dictar movimiento'}</button><button type="button" disabled={busy||!phrase.trim()} onClick={interpret}>{busy?'Interpretando…':'Interpretar texto'}</button></div>

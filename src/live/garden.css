@@ -819,10 +819,14 @@
   }
 }
 
-@container (max-width:760px) {
+/* El aside de la meta pasa debajo de la escena por debajo de 1024 px de contenedor. */
+@container (max-width:1023px) {
   .ag-layout {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+@container (max-width:760px) {
   .av-garden-live .ag-intro {
     display: block;
   }

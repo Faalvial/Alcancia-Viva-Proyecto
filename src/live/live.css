@@ -39,6 +39,21 @@
   margin: 0 0 0.7rem;
 }
 
+/* Títulos y montos largos se parten (con guion en español) antes que desbordar,
+   sobre todo con texto 200 % en móvil. */
+.av-app h1,
+.av-page h1,
+.av-app h2,
+.av-page h2,
+.av-app h3 {
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+.av-stats strong {
+  overflow-wrap: anywhere;
+}
+
 .av-app h3 {
   font-weight: 650;
   margin: 1.4rem 0 0.5rem;
@@ -166,24 +181,111 @@
   flex-shrink: 0;
 }
 
+/* ===================== Shell: header ===================== */
+
 .av-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 1rem;
   flex-wrap: wrap;
+  gap: 1rem;
   padding: 1rem 4vw;
   --av-safe-pad-top: 1rem;
   border-bottom: 1px solid var(--line);
   background: var(--card);
 }
 
-.av-header > div {
+.av-header-actions {
   display: flex;
-  gap: 1rem;
   align-items: center;
+  justify-content: flex-end;
   flex-wrap: wrap;
+  gap: 0.5rem 0.9rem;
+  min-width: 0;
 }
+
+.av-app .av-connection {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  font-size: 0.85em;
+  line-height: 1.3;
+  color: var(--muted);
+}
+
+.av-connection-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  flex-shrink: 0;
+  border-radius: var(--av-radius-pill);
+  background: var(--line);
+  box-shadow: 0 0 0 3px var(--card);
+}
+
+.av-connection[data-state="online"] .av-connection-dot {
+  background: var(--c-ahorro);
+}
+
+.av-connection[data-state="offline"] .av-connection-dot {
+  background: var(--c-ingreso);
+}
+
+.av-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 2.25rem;
+  flex-shrink: 0;
+}
+
+.av-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  border-radius: var(--av-radius-pill);
+  background: var(--c-ahorro-soft);
+  color: var(--av-accent-strong);
+  border: 1px solid var(--line);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.av-user-name {
+  overflow-wrap: anywhere;
+}
+
+.av-app .av-icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.av-app .av-with-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.av-header-settings {
+  display: none !important;
+}
+
+.av-header-settings[aria-current="page"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ===================== Shell: layout y navegación ===================== */
+/* Escritorio (≥ 1024 px): barra lateral de 210 px con icono y texto. */
 
 .av-layout {
   max-width: 1440px;
@@ -203,21 +305,30 @@
   top: 1rem;
 }
 
-.av-nav button {
+.av-app .av-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
   text-align: left;
   border: 0;
   background: transparent;
   color: var(--muted);
 }
 
-.av-nav button[aria-current="page"] {
-  background: #e3ebdc;
-  color: #214b33;
+.av-nav-icon {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
 }
 
-.av-connection {
-  font-size: 0.85em;
-  padding: 0.6rem;
+.av-nav-text--short {
+  display: none;
+}
+
+.av-app .av-nav-item[aria-current="page"] {
+  background: var(--c-ahorro-soft);
+  color: var(--av-accent-strong);
 }
 
 .av-main {
@@ -237,6 +348,69 @@
   margin: 0;
   min-width: 200px;
   font-size: 0.9em;
+}
+
+/* Acción principal flotante: solo en móvil (ver media query). */
+.av-app .av-fab {
+  display: none;
+}
+
+/* Bottom sheet: el asa solo se ve en móvil. */
+.av-sheet-handle {
+  display: none;
+}
+
+/* Tablet (768–1023 px): rail de 72 px con iconos y tooltip. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .av-layout {
+    grid-template-columns: 72px minmax(0, 1fr);
+    gap: 1.5rem;
+    padding: 1.5rem 3vw 2rem 0.5rem;
+  }
+  .av-large .av-layout {
+    padding-left: 3vw;
+  }
+  .av-nav {
+    align-items: center;
+  }
+  .av-app .av-nav-item {
+    position: relative;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    padding: 0;
+    border-radius: var(--av-radius-md);
+  }
+  .av-nav-text--long {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .av-nav-item::after {
+    content: attr(data-label);
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 0.3rem 0.65rem;
+    border-radius: var(--av-radius-xs);
+    background: var(--ink);
+    color: var(--card);
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--av-dur-fast) var(--av-ease-out);
+    z-index: 40;
+  }
+  .av-nav-item:hover::after,
+  .av-nav-item:focus-visible::after {
+    opacity: 1;
+  }
 }
 
 .av-eyebrow {
@@ -342,6 +516,7 @@
   border-radius: 20px;
   padding: 1.5rem;
   width: min(600px, calc(100% - 24px));
+  max-width: calc(100% - 24px);
   max-height: 90dvh;
   overflow: auto;
   box-shadow: 0 20px 70px #0003;
@@ -388,6 +563,11 @@
 
 .av-group-choice span {
   font-size: 0.8em;
+}
+
+.av-large .av-group-choice {
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
 }
 
 .av-group-choice[aria-pressed="true"] {
@@ -493,30 +673,199 @@
   background: #222;
 }
 
+.av-contrast .av-nav-item[aria-current="page"] .av-nav-icon {
+  background: transparent;
+}
+
+.av-contrast .av-avatar {
+  background: var(--card);
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+.av-contrast .av-sheet-handle {
+  background: var(--ink);
+}
+
+/* Texto 200 %: la navegación deja de ser fija y se convierte en una fila que se
+   ajusta, con icono y texto completo, para no perder contenido (WCAG 1.4.4). */
+.av-app.av-large .av-nav {
+  position: static;
+  height: auto;
+  padding: 0;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.4rem;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.av-app.av-large .av-nav-item {
+  flex: 0 1 auto;
+  width: auto;
+  height: auto;
+  flex-direction: row;
+  gap: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--av-radius-sm);
+  font-size: inherit;
+  letter-spacing: normal;
+}
+
+.av-app.av-large .av-nav-item[aria-current="page"] {
+  background: var(--c-ahorro-soft);
+}
+
+.av-app.av-large .av-nav-icon {
+  width: auto;
+  height: auto;
+  background: transparent;
+}
+
+.av-app.av-large .av-nav-text--long {
+  display: inline;
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip-path: none;
+  white-space: normal;
+}
+
+.av-app.av-large .av-nav-text--short,
+.av-app.av-large .av-nav-item::after {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .av-app.av-large .av-layout {
+    padding-bottom: calc(56px + 2rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 .av-still * {
   animation: none !important;
   transition: none !important;
   scroll-behavior: auto !important;
 }
 
-@media (max-width: 760px) {
+/* ===================== Móvil (< 768 px) ===================== */
+
+@media (max-width: 767px) {
+  .av-header {
+    padding: 0.75rem 1rem;
+    --av-safe-pad-top: 0.75rem;
+  }
+  .av-header-actions {
+    gap: 0.5rem;
+  }
+  .av-brand {
+    font-size: 1.15em;
+  }
+  /* Solo logo y avatar: el nombre se anuncia, Salir pasa a Preferencias. */
+  .av-user-name,
+  .av-connection:not([data-state="offline"]) .av-connection-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .av-header-logout {
+    display: none !important;
+  }
+  .av-header-settings {
+    display: inline-grid !important;
+  }
+
+  /* Espacio libre bajo el contenido para la tab bar y el FAB. */
   .av-layout {
     grid-template-columns: 1fr;
     gap: 1rem;
-    padding: 1rem;
+    padding: 1rem 1rem calc(var(--av-tabbar-height) + 56px + 2rem + env(safe-area-inset-bottom, 0px));
   }
+
+  /* Tab bar fija inferior. */
   .av-nav {
-    position: static;
+    position: fixed;
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
     flex-direction: row;
-    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 0;
+    height: calc(var(--av-tabbar-height) + env(safe-area-inset-bottom, 0px));
+    padding-left: max(0.25rem, env(safe-area-inset-left, 0px));
+    padding-right: max(0.25rem, env(safe-area-inset-right, 0px));
+    background: var(--card);
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -6px 20px rgb(16 37 25 / 0.06);
   }
-  .av-nav button {
-    font-size: 0.9em;
+  .av-app .av-nav-item {
+    flex: 1 0 auto;
+    width: auto;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.2rem;
+    padding: 0.3rem 0.1rem;
+    border-radius: 0;
+    font-size: clamp(0.625rem, 2.9vw, 0.75rem);
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
   }
-  .av-connection {
-    margin: 0 !important;
-    padding: 0.4rem;
+  .av-app .av-nav-item[aria-current="page"] {
+    background: transparent;
+    color: var(--av-accent-strong);
   }
+  /* Indicador activo: el icono dentro de una hoja. */
+  .av-nav-icon {
+    width: 3.25rem;
+    height: 1.9rem;
+    border-radius: 16px 4px 16px 4px;
+    transition: background-color var(--av-dur-fast) var(--av-ease-out);
+  }
+  .av-nav-item[aria-current="page"] .av-nav-icon {
+    background: var(--c-ahorro-soft);
+  }
+  .av-nav-text--long {
+    display: none;
+  }
+  .av-nav-item[data-tab="settings"] {
+    display: none !important;
+  }
+  .av-nav-text--short {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* FAB sobre la tab bar, a la derecha. */
+  .av-app .av-fab {
+    display: grid;
+    place-items: center;
+    position: fixed;
+    right: max(1rem, env(safe-area-inset-right, 0px));
+    bottom: calc(var(--av-tabbar-height) + 1rem + env(safe-area-inset-bottom, 0px));
+    z-index: 31;
+    width: 56px;
+    height: 56px;
+    padding: 0;
+    border-radius: var(--av-radius-pill);
+    box-shadow: var(--av-shadow-md);
+  }
+  .av-toolbar-register {
+    display: none !important;
+  }
+
   .av-auth-grid {
     grid-template-columns: 1fr;
     gap: 1rem;
@@ -524,10 +873,6 @@
   .av-welcome img {
     height: 180px;
   }
-  .av-header {
-    padding: 1rem;
-  }
-  .av-toolbar > button,
   .av-toolbar label {
     width: 100%;
   }
@@ -537,11 +882,60 @@
   .av-card {
     padding: 1.1rem;
   }
-  .av-dialog {
-    padding: 1rem;
-  }
   .av-invitation input {
     font-size: 0.7em;
+  }
+
+  /* MovementComposer como bottom sheet. */
+  .av-dialog {
+    width: 100%;
+    max-width: 100%;
+    max-height: 92dvh;
+    margin: auto 0 0;
+    padding: 0 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+    border-radius: var(--av-radius-sheet) var(--av-radius-sheet) 0 0;
+    transition: transform var(--av-dur-base) var(--av-ease-out);
+  }
+  .av-dialog[open] {
+    animation: av-sheet-in var(--av-dur-base) var(--av-ease-out);
+  }
+  .av-dialog.is-dragging {
+    transition: none;
+  }
+  .av-sheet-grip {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    margin: 0 -1rem;
+    padding: 0.5rem 1rem 0.25rem;
+    background: var(--card);
+    touch-action: none;
+    cursor: grab;
+  }
+  .av-sheet-handle {
+    display: block;
+    width: 2.5rem;
+    height: 0.3rem;
+    margin: 0 auto 0.5rem;
+    border-radius: var(--av-radius-pill);
+    background: var(--av-field-line);
+  }
+}
+
+@keyframes av-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* Monto y fecha en una columna en pantallas muy estrechas. */
+@media (max-width: 479px) {
+  .av-fields {
+    grid-template-columns: 1fr;
+    gap: 0;
   }
 }
 
