@@ -1,24 +1,50 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Goal, Group, Preferences } from './client';
 import { soles } from './domain';
 import { GROWTH_STAGES, gardenNumber, goalPercent, growthStage, gardenSummary, goalPace, goalDateLabel } from './garden';
 import { SpeechService } from '../services/voice/speechService';
 import { goalRemaining } from './timeline';
 import { GoalRing } from '../components/GoalRing';
+import { usePreviousStage } from '../hooks/usePreviousStage';
+import { useCountUp } from '../hooks/useCountUp';
 import './garden.css';
 
+function StageSprite({stage,index,className=''}:{stage:number;index:number;className?:string}) {
+  const style={'--ag-position':`${[0,50,100][stage%3]}% ${stage<3?0:100}%`,'--ag-delay':`${index*-.85}s`} as React.CSSProperties;
+  return <span className={`ag-stage ${stage<3?'ag-top-row':''} ${className}`} style={style}><span className="ag-vessel"/><span className="ag-foliage"/></span>;
+}
+/** Maceta con el sprite de su etapa; al subir de etapa hace un fundido cruzado con escala (600 ms). */
 export function Plant({percent,index=0}:{percent:number;index?:number}) {
   const stage=growthStage(percent);
-  const style={'--ag-position':`${[0,50,100][stage%3]}% ${stage<3?0:100}%`,'--ag-delay':`${index*-.85}s`} as React.CSSProperties;
-  return <span className="ag-plant" aria-hidden="true"><span className={`ag-stage ${stage<3?'ag-top-row':''}`} style={style}><span className="ag-vessel"/><span className="ag-foliage"/></span></span>;
+  const transition=usePreviousStage(stage);
+  return <span className={`ag-plant ${transition?'ag-plant-growing':''}`} aria-hidden="true">
+    {transition&&<StageSprite key={`out-${transition.key}`} stage={transition.from} index={index} className="ag-stage-out"/>}
+    <StageSprite key={transition?`in-${transition.key}`:'stage'} stage={stage} index={index} className={transition?'ag-stage-in':''}/>
+  </span>;
+}
+
+const PETAL_COLORS=['var(--c-stage-4)','var(--c-stage-5)','var(--c-ingreso-soft)','var(--c-stage-1)','var(--c-gasto-soft)'];
+/**
+ * Lluvia de pétalos (16) cuando una meta llega al 100 %. Es una capa fija sobre la
+ * pantalla (portal en .av-app) para que se vea aunque el foco haya vuelto al botón de
+ * aporte, debajo de la escena en pantallas estrechas. Se omite con movimiento reducido.
+ */
+function PetalRain() {
+  const host=document.querySelector('.av-app')||document.body;
+  return createPortal(<span className="ag-petals" aria-hidden="true">{Array.from({length:16},(_,i)=>{
+    const style={'--x':`${(i*37+11)%96}%`,'--delay':`${(i%6)*0.11}s`,'--drift':`${(i%2?1:-1)*(12+(i*7)%28)}px`,'--spin':`${(i%3-1)*220+180}deg`,'--petal':PETAL_COLORS[i%PETAL_COLORS.length],'--size':`${12+(i*5)%9}px`} as React.CSSProperties;
+    return <i key={i} style={style}/>;
+  })}</span>,host);
 }
 const groupLabel=(goal:Goal,groups:Group[])=>goal.group_id?`Grupo · ${groups.find(group=>group.id===goal.group_id)?.name||'Compartido'}`:'Personal';
 interface GardenProps {
   goals:Goal[]; groups:Group[]; selectedId:string; today:string; prefs:Preferences;
   onSelect:(id:string)=>void; onContribute:(goal:Goal)=>void; onCreate:()=>void;
   watering:{goalId:string;nonce:number}|null;
+  celebration?:{goalId:string;nonce:number}|null;
 }
-export function Garden({goals,groups,selectedId,today,prefs,onSelect,onContribute,onCreate,watering}:GardenProps) {
+export function Garden({goals,groups,selectedId,today,prefs,onSelect,onContribute,onCreate,watering,celebration=null}:GardenProps) {
   const [paused,setPaused]=useState(false),[systemReduced,setSystemReduced]=useState(()=>matchMedia('(prefers-reduced-motion: reduce)').matches);
   useEffect(()=>{const query=matchMedia('(prefers-reduced-motion: reduce)');const change=()=>setSystemReduced(query.matches);query.addEventListener('change',change);return()=>query.removeEventListener('change',change);},[]);
   const selected=goals.find(goal=>goal.id===selectedId)||goals[0];
@@ -27,6 +53,7 @@ export function Garden({goals,groups,selectedId,today,prefs,onSelect,onContribut
   const page=Math.max(0,Math.floor(goals.findIndex(goal=>goal.id===selected?.id)/8));
   const visible=goals.slice(page*8,page*8+8);
   const reduced=prefs.reducedMotion||systemReduced,stopped=paused||reduced;
+  const savedShown=useCountUp(selected?.current_amount||0,{enabled:!reduced,resetKey:selected?.id||''});
   function speakGarden(){
     const text=`${summary.label}. ${summary.count} metas con un avance promedio de ${gardenNumber(summary.percent)} por ciento. ${selected?`${selected.title}: ${soles(selected.current_amount)} de ${soles(selected.target_amount)}. ${stage.name}. ${rhythm?.label}. ${rhythm?.message}`:'Crea tu primera meta para plantar una nueva maceta.'}`;
     SpeechService.speak(text);
@@ -38,6 +65,7 @@ export function Garden({goals,groups,selectedId,today,prefs,onSelect,onContribut
     </div></div>
     <div className="ag-layout"><div className="ag-garden-column">
       <div className="ag-scene" style={{'--ag-saturation':.85+summary.percent*.003} as React.CSSProperties}>
+        {celebration&&!reduced&&<PetalRain key={celebration.nonce}/>}
         <div className="ag-scene-heading"><span>EL JARDÍN DE TUS METAS</span><p>{summary.label}</p></div>
         <div className="ag-pots" role="group" aria-label="Macetas de tus metas">
           {visible.map((goal,index)=>{const amount=goalPercent(goal),phase=GROWTH_STAGES[growthStage(amount)];return <button type="button" className="ag-pot" key={goal.id} data-goal={goal.id} aria-pressed={goal.id===selected?.id} aria-controls="av-garden-detail" aria-label={`${goal.title}. ${groupLabel(goal,groups)}. ${gardenNumber(amount)} por ciento. ${phase.name}. Ver estado.`} onClick={()=>onSelect(goal.id)}>
@@ -55,7 +83,7 @@ export function Garden({goals,groups,selectedId,today,prefs,onSelect,onContribut
     {selected&&rhythm&&<aside id="av-garden-detail" className="ag-detail" aria-labelledby="av-garden-goal-title">
       <div className="ag-detail-top"><span className="ag-eyebrow">TU MACETA SELECCIONADA</span><span className="ag-type">{groupLabel(selected,groups)}</span></div>
       <h2 id="av-garden-goal-title">{selected.title}</h2><p className="ag-stage-name">{stage.name}</p>
-      <div className="ag-money"><strong>{soles(selected.current_amount)}</strong><span>de {soles(selected.target_amount)}</span></div>
+      <div className="ag-money"><strong>{soles(savedShown)}</strong><span>de {soles(selected.target_amount)}</span></div>
       <div className="ag-progress-title"><span>Tu avance</span><strong>{gardenNumber(value)} %</strong></div><progress max={100} value={value} aria-label={`Avance de ${selected.title}`}/>
       <p className="ag-growth-copy">{prefs.simple?`${gardenNumber(value)} % de tu meta. Cada aporte cuenta.`:stage.message}</p>
       <div className={`ag-pace ${rhythm.kind==='review'?'ag-review':''}`}><span className="ag-pace-icon" aria-hidden="true">{rhythm.kind==='complete'?'✓':rhythm.kind==='review'?'↻':'↗'}</span><div><strong>{rhythm.label}</strong><p>{prefs.simple?(rhythm.kind==='review'?'Puedes ajustar el plan. Tu ahorro se conserva.':rhythm.kind==='complete'?'¡Meta conseguida!': 'Cada aporte cuenta.'):rhythm.message}</p></div></div>

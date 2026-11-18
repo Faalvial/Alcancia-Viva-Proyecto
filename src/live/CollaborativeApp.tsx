@@ -31,6 +31,8 @@ import { BudgetGauge } from '../components/BudgetGauge';
 import { GroupCard } from '../components/GroupCard';
 import { MOVEMENT_META, MovementTypeIcon } from '../components/MovementTypeIcon';
 import { useTheme } from '../hooks/useTheme';
+import { useCountUp } from '../hooks/useCountUp';
+import { UNDO_WINDOW_MS } from '../components/Toast';
 import type { ThemePreference } from '../hooks/useTheme';
 import type { DictationMessages } from '../services/voice/questionDictation';
 import './live.css';
@@ -107,7 +109,9 @@ function Auth() {
     <section className="av-auth-grid">
       <div className="av-welcome"><p className="av-eyebrow">CADA PEQUEÑO PASO CUENTA</p><h1>Tu ahorro,<br/>un jardín que crece.</h1>
         <p>Comprende tus gastos, cuida tus metas y avanza junto a quienes tú elijas.</p>
-        <img src="/garden/floreciente.png" alt="Jardín con flores rosadas, margaritas y un sendero de piedra"/>
+        <div className="av-welcome-art"><img src="/garden/floreciente.png" alt="Jardín con flores rosadas, margaritas y un sendero de piedra"/>
+          {/* Capa del follaje con una brisa muy lenta (se detiene con movimiento reducido). */}
+          <img className="av-welcome-breeze" src="/garden/floreciente.png" alt="" aria-hidden="true"/></div>
       </div>
       <section className="av-card" aria-labelledby="auth-title">{recovering?<RecoveryEmailForm initialEmail={email} onBack={()=>setRecovering(false)}/>:<><h2 id="auth-title">{signup?'Crea tu espacio':'Bienvenido a tu jardín'}</h2>
         <p>Organiza tus gastos, alcanza tus metas y haz crecer tu ahorro.</p>
@@ -140,6 +144,7 @@ function Workspace({session}:{session:Session}) {
   const [composerDraft,setComposerDraft]=useState<VoiceDraft|null>(null),[voiceOpen,setVoiceOpen]=useState(false);
   const [systemReduced,setSystemReduced]=useState(()=>matchMedia('(prefers-reduced-motion: reduce)').matches);
   const [watering,setWatering]=useState<{goalId:string;nonce:number}|null>(null);
+  const [celebration,setCelebration]=useState<{goalId:string;nonce:number}|null>(null);
   const [today,setToday]=useState(()=>localDate());
   const [notice,setNotice]=useState(''),[chat,setChat]=useState<{question:string;answer:string}[]>([]);
   const [assistantQuestion,setAssistantQuestion]=useState('');
@@ -161,6 +166,7 @@ function Workspace({session}:{session:Session}) {
   const groupAdmin=Boolean(selectedGroup&&data.roles[groupId]==='admin');
   function openComposer(goal?:Goal,draft:VoiceDraft|null=null){setComposerGoalId(goal?.id||'');setComposerDraft(draft);setComposer(true);}
   const reducedMotion=prefs.reducedMotion||systemReduced;
+  const savedShown=useCountUp(garden.saved,{enabled:!reducedMotion,resetKey:groupId});
   useEffect(()=>{const query=matchMedia('(prefers-reduced-motion: reduce)');const change=()=>setSystemReduced(query.matches);query.addEventListener('change',change);return()=>query.removeEventListener('change',change);},[]);
   useEffect(()=>{SpeechService.init();SpeechService.setRate(prefs.speechRate);},[prefs.speechRate]);
   function goTo(id:TabId){setTab(id);window.scrollTo({top:0});}
@@ -168,6 +174,7 @@ function Workspace({session}:{session:Session}) {
   useKeyShortcut('n',()=>openComposer(),Boolean(profile)&&!composer&&!voiceOpen);
   useEffect(()=>{const timer=window.setInterval(()=>setToday(localDate()),60000);return()=>window.clearInterval(timer);},[]);
   useEffect(()=>{if(!watering)return;const timer=window.setTimeout(()=>setWatering(null),1600);return()=>window.clearTimeout(timer);},[watering]);
+  useEffect(()=>{if(!celebration)return;const timer=window.setTimeout(()=>setCelebration(null),2600);return()=>window.clearTimeout(timer);},[celebration]);
   const refresh=useCallback(async()=>{
     const version=++reloadCounter.current;
     const snapshot=await loadSnapshot(userId);
@@ -250,13 +257,19 @@ function Workspace({session}:{session:Session}) {
     const target=m.type==='savings'?data.goals.find(g=>g.id===m.goal_id):undefined;
     await saveRemote(m);
     vibrate('success');
+    let bloomed=false;
     if(target&&target.target_amount>0){
       // Cambio de etapa de la planta: vibración y earcon (HU-13, FR-18).
-      const after=growthStage(Math.min(100,(target.current_amount+m.amount)/target.target_amount*100));
-      if(after>growthStage(goalPercent(target))){vibrate('stage');playEarcon('success',prefs.audio);}
+      const before=goalPercent(target),after=Math.min(100,(target.current_amount+m.amount)/target.target_amount*100);
+      if(growthStage(after)>growthStage(before)){vibrate('stage');playEarcon('success',prefs.audio);}
+      // Celebración al 100 %: pétalos sobre la escena (sin ellos con movimiento reducido) y aviso.
+      bloomed=before<100&&after>=100;
+      if(bloomed)setCelebration({goalId:target.id,nonce:Date.now()});
     }
-    setMessage(m.type==='savings'?`${soles(m.amount)} sumados a ${data.goals.find(g=>g.id===m.goal_id)?.title}.`: `${movementNames[m.type]} de ${soles(m.amount)} guardado.`,
-      {type:m.type,action:{label:'Deshacer',onClick:()=>act(async()=>{await rpc('reverse_movement',{p_id:m.id});await refresh();setMessage('Movimiento revertido; actualizamos el avance.',{tone:'info'});})}});
+    const savedText=m.type==='savings'?`${soles(m.amount)} sumados a ${target?.title}.`:`${movementNames[m.type]} de ${soles(m.amount)} guardado.`;
+    // HU-17: «Deshacer» durante 10 s con una barra que se vacía; después sigue disponible en Movimientos.
+    setMessage(bloomed?`¡${target?.title} floreció! ${savedText}`:savedText,
+      {type:m.type,tone:bloomed?'celebration':'success',duration:UNDO_WINDOW_MS,countdown:true,action:{label:'Deshacer',onClick:()=>act(async()=>{await rpc('reverse_movement',{p_id:m.id});await refresh();setMessage('Movimiento revertido; actualizamos el avance.',{tone:'info'});})}});
     if(profile&&phrase&&m.type==='expense'&&originalCategory!==m.category){
       const key=learningKey(phrase);const previous=profile.learned_categories[key];
       try{await updateProfile({...profile,learned_categories:{...profile.learned_categories,[key]:{category:m.category,count:previous?.category===m.category?previous.count+1:1}}});}
@@ -299,9 +312,10 @@ function Workspace({session}:{session:Session}) {
         <button type="button" className="av-with-icon av-toolbar-register" aria-keyshortcuts="n" onClick={()=>openComposer()}><Plus size={24} aria-hidden="true"/>Registrar movimiento</button></div>
       {error&&<p role="alert" className="av-error">{error}</p>}{notice&&<p className="av-notice">{notice}<button className="av-link" onClick={()=>setNotice('')}>Cerrar aviso</button></p>}
       {pending>0&&<p role="status">{pending} movimiento(s) pendiente(s). <button className="av-link" disabled={!online||busy} onClick={()=>act(flushQueue)}>Reintentar sincronización</button></p>}
+      <div className="av-tab-panel" key={tab}>
       {tab==='garden'&&<>
-        <Garden goals={selectedGoals} groups={data.groups} selectedId={selectedGoalId} today={today} prefs={prefs} onSelect={setSelectedGoalId} onContribute={openComposer} onCreate={()=>setTab('goals')} watering={watering}/>
-        <div className="av-stats"><section className="av-card"><h2>Avance conjunto de tus metas</h2><strong>{soles(garden.saved)}</strong><p>{selectedGoals.length} meta(s){isOverview?' personales y compartidas':selectedGroup?` de ${selectedGroup.name}`:' personales'}. Cada planta crece según su propio avance.</p></section>
+        <Garden goals={selectedGoals} groups={data.groups} selectedId={selectedGoalId} today={today} prefs={prefs} onSelect={setSelectedGoalId} onContribute={openComposer} onCreate={()=>setTab('goals')} watering={watering} celebration={celebration}/>
+        <div className="av-stats"><section className="av-card"><h2>Avance conjunto de tus metas</h2><strong>{soles(savedShown)}</strong><p>{selectedGoals.length} meta(s){isOverview?' personales y compartidas':selectedGroup?` de ${selectedGroup.name}`:' personales'}. Cada planta crece según su propio avance.</p></section>
           <section className="av-card av-budget-card"><h2>Tu presupuesto semanal</h2><p>Solo tus gastos de esta semana, de lunes a hoy.</p><BudgetGauge spent={spent} budget={prefs.weeklyBudget} movements={mine} today={today}/>
             <p>{spent>prefs.weeklyBudget?'Superaste el presupuesto que elegiste. Puedes revisar tus categorías y ajustar el próximo paso.':'Puedes revisar tus movimientos cuando lo necesites.'}</p></section></div>
       </>}
@@ -351,6 +365,7 @@ function Workspace({session}:{session:Session}) {
       </section>
       <section className="av-card"><h2>Tu sesión</h2><p>Sesión iniciada como {profile.display_name}.</p>
         <button type="button" className="av-secondary av-with-icon" onClick={signOut}><LogOut size={24} aria-hidden="true"/>Cerrar sesión</button></section></>}
+      </div>
     </main></div>
     <Toast toast={toast} onDismiss={()=>setToast(null)}/>
     <button type="button" className="av-secondary av-fab-voice" aria-label="Hablar" data-voice-entry onClick={()=>setVoiceOpen(true)}><Mic size={24} aria-hidden="true"/></button>

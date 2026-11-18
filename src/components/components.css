@@ -1187,3 +1187,226 @@
     white-space: nowrap;
   }
 }
+
+/* ===================== Fase 4: delicia ===================== */
+
+/* Transición de etapa: fundido cruzado con escala entre el sprite anterior y el nuevo. */
+.ag-plant-growing .ag-stage {
+  transform-origin: 50% 92%;
+}
+
+.ag-stage-out {
+  animation: ag-stage-out var(--av-dur-stage) var(--av-ease-out) forwards;
+}
+
+.ag-stage-in {
+  animation: ag-stage-in var(--av-dur-stage) var(--av-ease-out) both;
+}
+
+@keyframes ag-stage-out {
+  from {
+    opacity: 1;
+    transform: translateY(var(--ag-offset, 0)) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(var(--ag-offset, 0)) scale(1.06);
+  }
+}
+
+@keyframes ag-stage-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--ag-offset, 0)) scale(0.86);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(var(--ag-offset, 0)) scale(1);
+  }
+}
+
+/* Sin animación, el sprite nuevo aparece directamente. */
+.av-still .ag-stage-out {
+  display: none;
+}
+
+/* Celebración al 100 %: lluvia de pétalos sobre la escena. */
+.ag-petals {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ag-petals i {
+  position: absolute;
+  top: -8%;
+  left: var(--x);
+  width: var(--size);
+  height: calc(var(--size) * 1.45);
+  border-radius: 80% 0 80% 0;
+  background: var(--petal);
+  box-shadow: 0 1px 2px rgb(16 37 25 / 0.2);
+  opacity: 0;
+  animation: ag-petal-fall 1.45s var(--delay) cubic-bezier(0.33, 0.1, 0.5, 1) forwards;
+}
+
+@keyframes ag-petal-fall {
+  0% {
+    top: -8%;
+    opacity: 0;
+    transform: translateX(0) rotate(0deg);
+  }
+  12% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+    transform: translateX(var(--drift)) rotate(var(--spin));
+  }
+}
+
+/* Aviso con ventana para deshacer (HU-17): barra que se vacía en 10 s. */
+.av-toast {
+  position: relative;
+  overflow: hidden;
+}
+
+.av-toast-timer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: var(--tone, var(--c-ahorro));
+  transform-origin: left center;
+  animation: av-toast-timer linear forwards;
+}
+
+.av-toast--countdown {
+  --tone: var(--c-ahorro);
+}
+
+.av-toast.is-paused .av-toast-timer {
+  animation-play-state: paused;
+}
+
+@keyframes av-toast-timer {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.av-toast-seconds {
+  min-width: 2.2em;
+  margin-left: 0.15rem;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85em;
+  color: var(--muted);
+}
+
+.av-toast--celebration {
+  border-color: var(--c-ingreso);
+  background:
+    radial-gradient(120% 140% at 0% 0%, var(--c-ingreso-soft) 0%, transparent 55%),
+    var(--card);
+}
+
+.av-still .av-toast-timer {
+  transform: scaleX(1);
+  opacity: 0.45;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .av-toast-timer {
+    animation: none !important;
+    opacity: 0.45;
+  }
+}
+
+/* Micro-interacciones: presión de botones, elevación de macetas y fundido al cambiar de pestaña. */
+.av-app button,
+.av-page button {
+  transition:
+    transform var(--av-dur-instant) var(--av-ease-out),
+    background-color var(--av-dur-fast) var(--av-ease-out),
+    border-color var(--av-dur-fast) var(--av-ease-out),
+    box-shadow var(--av-dur-fast) var(--av-ease-out);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .av-app:not(.av-still) button:not(:disabled):active,
+  .av-page button:not(:disabled):active {
+    transform: scale(0.97);
+  }
+  .av-app:not(.av-still) .ag-pot {
+    transition:
+      transform var(--av-dur-base) var(--av-ease-out),
+      background-color var(--av-dur-fast) var(--av-ease-out),
+      box-shadow var(--av-dur-base) var(--av-ease-out);
+  }
+  .av-app:not(.av-still) .ag-pot:hover,
+  .av-app:not(.av-still) .ag-pot:focus-visible {
+    transform: translateY(-5px);
+  }
+  .av-app:not(.av-still) .ag-pot:not(:disabled):active {
+    transform: translateY(-5px) scale(0.98);
+  }
+}
+
+.av-app .ag-pot:hover .ag-plant-label,
+.av-app .ag-pot:focus-visible .ag-plant-label {
+  box-shadow: var(--av-shadow-md);
+}
+
+.av-tab-panel {
+  animation: av-tab-fade var(--av-dur-fast) var(--av-ease-out);
+}
+
+@keyframes av-tab-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Acceso: brisa muy lenta sobre una capa con el follaje (reutiliza ag-breeze). */
+.av-welcome-art {
+  position: relative;
+  margin-top: 1rem;
+  overflow: hidden;
+  border-radius: 140px 140px 20px 20px;
+  isolation: isolate;
+}
+
+.av-welcome .av-welcome-art img {
+  display: block;
+  margin-top: 0;
+}
+
+.av-welcome .av-welcome-art .av-welcome-breeze {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black 38%, transparent 62%);
+  mask-image: linear-gradient(to bottom, black 0%, black 38%, transparent 62%);
+  transform-origin: 50% 62%;
+  scale: 1.04;
+  animation: ag-breeze 14s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .av-welcome .av-welcome-art .av-welcome-breeze {
+    display: none;
+  }
+}

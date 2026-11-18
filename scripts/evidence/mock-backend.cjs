@@ -106,6 +106,24 @@ async function mockBackend(page, { preferences = {}, signedIn = true, empty = fa
     }
     if (path.startsWith('/rest/v1/rpc/')) {
       const name = path.split('/').pop();
+      // Registrar y revertir actualizan los datos simulados, como haría el servidor.
+      if (name === 'record_movement') {
+        const p = JSON.parse(request.postData() || '{}');
+        const goal = data.tables.goal_progress.find((g) => g.id === p.p_goal);
+        if (p.p_type === 'savings' && goal) goal.current_amount = Math.round((goal.current_amount + p.p_amount) * 100) / 100;
+        data.tables.movements.unshift({ id: p.p_id, user_id: USER_ID, type: p.p_type, amount: p.p_amount, category: p.p_category, description: p.p_description, occurred_on: p.p_date, source: p.p_source, goal_id: p.p_goal || null, group_id: goal?.group_id || null, reversed_at: null, created_at: new Date().toISOString() });
+        return json(null);
+      }
+      if (name === 'reverse_movement') {
+        const p = JSON.parse(request.postData() || '{}');
+        const movement = data.tables.movements.find((m) => m.id === p.p_id);
+        if (movement && !movement.reversed_at) {
+          movement.reversed_at = new Date().toISOString();
+          const goal = data.tables.goal_progress.find((g) => g.id === movement.goal_id);
+          if (movement.type === 'savings' && goal) goal.current_amount = Math.round((goal.current_amount - movement.amount) * 100) / 100;
+        }
+        return json(null);
+      }
       return json(name in data.rpc ? data.rpc[name] : null);
     }
     if (path.startsWith('/rest/v1/')) {

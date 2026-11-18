@@ -34,7 +34,7 @@ const tab = (page, name) => page.getByRole('button', { name: new RegExp(`^${name
     assert.ok(await page.getByRole('button', { name: /^Deshacer/ }).count() >= 1);
   });
 
-  await check('toast: se cierra solo a los 6 s y se pausa con el puntero encima', async () => {
+  await check('toast tras guardar: se cierra solo (ventana de 10 s desde la Fase 4) y se pausa con el puntero encima', async () => {
     await page.getByRole('button', { name: /Registrar movimiento/ }).filter({ visible: true }).first().click();
     await page.getByLabel('Tipo de movimiento').selectOption('income');
     await page.getByLabel('Monto en soles').fill('20');
@@ -46,7 +46,7 @@ const tab = (page, name) => page.getByRole('button', { name: new RegExp(`^${name
     await page.waitForTimeout(7000);
     assert.equal(await toast.count(), 1, 'sigue visible mientras el puntero está encima');
     await page.mouse.move(5, 5);
-    await page.waitForTimeout(6500);
+    await page.waitForTimeout(10500);
     assert.equal(await toast.count(), 0, 'se cierra al reanudar');
   });
 
