@@ -9,13 +9,17 @@
 [![PWA](https://img.shields.io/badge/Plataforma-PWA-5A0FC8.svg)](public/manifest.json)
 [![Supabase](https://img.shields.io/badge/Backend-Supabase-3ECF8E.svg)](docs/SUPABASE.md)
 
-**[Abrir la aplicación](https://alcancia-viva-jardin.netlify.app)** · **[Repositorio del equipo](https://github.com/ingac98/Alcancia-Viva)** · **[Guía de instalación](docs/INSTALL.md)** · **[Datos simulados](data/mock_data.json)**
+**[Abrir la aplicación](https://alcancia-viva-jardin.netlify.app)** · **[Repositorio del equipo](https://github.com/Faalvial/Alcancia-Viva-Proyecto)** · **[Guía de instalación](docs/INSTALL.md)** · **[Datos simulados](data/mock_data.json)** · **[Novedades PC04](#novedades-pc04)**
+
+Basado en https://github.com/ingac98/Alcancia-Viva
 
 La versión de `main` incluye el jardín dinámico por metas, el historial de aportes por integrante y las preguntas por voz al asistente, con pausa y reanudación de sus respuestas. Se publica en la aplicación principal de Netlify. La [vista de revisión](https://jardin-integrado--alcancia-viva-jardin.netlify.app) permanece disponible. [Alcance y validación del jardín](docs/jardin-vivo-integracion.md).
 
 ![Jardín floreciente de Alcancía Viva](public/garden/floreciente.png)
 
 ## Contenido
+
+- [Novedades PC04](#novedades-pc04)
 
 1. [Descripción del proyecto](#1-descripción-del-proyecto)
 2. [Características principales](#2-características-principales)
@@ -27,6 +31,22 @@ La versión de `main` incluye el jardín dinámico por metas, el historial de ap
 8. [Estructura del repositorio](#8-estructura-del-repositorio)
 9. [Validación y evidencias](#9-validación-y-evidencias)
 10. [Equipo y licencia](#10-equipo-y-licencia)
+
+## Novedades PC04
+
+Rediseño en cinco fases (rama `rediseno-pc04`, [plan](PLAN_REDISENO.md)), con evidencia reproducible en [docs/evidence/pc04/](docs/evidence/pc04/README.md) y estado de cada requisito en la [matriz de trazabilidad](docs/trazabilidad-pc04.md).
+
+| Cambio | Requisitos |
+| --- | --- |
+| **Shell móvil:** tab bar inferior en celular, rail de 72 px en tablet y barra lateral en escritorio; botón flotante para registrar (y atajo «n» en escritorio); registro como bottom sheet con cierre por arrastre o botón. | [NFR-11](docs/trazabilidad-pc04.md), [NFR-04](docs/trazabilidad-pc04.md) |
+| **Identidad visual:** tokens de diseño, Fraunces e Inter autoalojadas, color e icono por tipo de movimiento (siempre con texto), anillo de etapa y «Te faltan S/ X» en metas, avatares en grupos, estados vacíos ilustrados, siluetas de carga, avisos con «Deshacer» y medidor semicircular del presupuesto con gastos de la semana. | [NFR-11](docs/trazabilidad-pc04.md) |
+| **Historial:** línea de tiempo por día con filtros por tipo y buscador. | [FR-24](docs/trazabilidad-pc04.md) |
+| **Modo oscuro «jardín de noche»** con selector Sistema / Claro / Oscuro; el alto contraste siempre tiene prioridad. | [NFR-11](docs/trazabilidad-pc04.md), [NFR-04](docs/trazabilidad-pc04.md) |
+| **Voz conversacional:** botón «Hablar» siempre visible, anillo con el volumen del micrófono, comandos de navegación, consultas respondidas en voz sin IA, registro con preguntas por lo que falta y confirmación «sí / no / cancelar»; voz es-PE, velocidad configurable, resaltado de la palabra leída, earcons y vibración. Detalles y compatibilidad en [docs/VOZ.md](docs/VOZ.md). | [FR-11](docs/trazabilidad-pc04.md), [FR-14](docs/trazabilidad-pc04.md), [FR-23](docs/trazabilidad-pc04.md), [HU-13](docs/trazabilidad-pc04.md), [HU-14](docs/trazabilidad-pc04.md), [NFR-13](docs/trazabilidad-pc04.md) |
+| **Celebración y deshacer:** la planta crece con una transición, lluvia de pétalos al llegar al 100 %, montos que suben con count-up y «Deshacer» durante 10 s tras cada registro. | [FR-18](docs/trazabilidad-pc04.md), [HU-17](docs/trazabilidad-pc04.md) |
+| **Auditoría:** 0 violaciones axe en 72 combinaciones (9 pantallas × 2 anchos × 4 modos), Lighthouse móvil 91 / 100 / 100 / 100 (Performance / Accessibility / Best Practices / PWA) y revisión con las Web Interface Guidelines. | [NFR-04](docs/trazabilidad-pc04.md) |
+
+La voz nunca es la única vía: todo se puede hacer por escrito y con teclado. Las preferencias de alto contraste, texto 200 % y movimiento reducido desactivan o adaptan cada animación nueva.
 
 ## 1. Descripción del proyecto
 
@@ -131,8 +151,8 @@ Las imágenes del jardín son recursos incluidos en el repositorio; su visualiza
 ### Inicio rápido
 
 ```bash
-git clone https://github.com/ingac98/Alcancia-Viva.git
-cd Alcancia-Viva
+git clone https://github.com/Faalvial/Alcancia-Viva-Proyecto.git
+cd Alcancia-Viva-Proyecto
 npm ci
 npm run dev
 ```
@@ -203,13 +223,13 @@ Ejemplos de entrada:
 | **Arquitectura C4** | [Contexto, contenedores y componentes](docs/architecture/c4-model.md). |
 | **Guía de instalación** | [docs/INSTALL.md](docs/INSTALL.md) y [configuración de Supabase](docs/SUPABASE.md). |
 | **Datos simulados incluidos** | [Dataset de 30 días](data/mock_data.json) y [escenarios reproducibles](data/README.md). |
-| **Interfaz de voz** | [Reconocimiento y síntesis](src/services/voice/speechService.ts), con alternativa escrita. |
+| **Interfaz de voz** | [Voz conversacional y matriz de compatibilidad](docs/VOZ.md): [router de intenciones](src/services/voice/intents.ts), [dictado](src/hooks/useDictation.ts) y [síntesis](src/services/voice/speechService.ts), con alternativa escrita. |
 | **LLM mediante API** | [Función del asistente](supabase/functions/financial-assistant/index.ts) y [reglas de moneda](supabase/functions/financial-assistant/currency-policy.ts). |
 | **Plataforma PWA** | [Manifiesto](public/manifest.json) y [service worker](public/sw.js). |
 | **Personalización continua** | Perfil persistente, preferencias y aprendizaje de categorías en [src/live/](src/live/). |
 | **Multiusuario y colaboración** | Grupos, solicitudes, roles, múltiples metas y aportes compartidos; [migraciones](supabase/migrations/). |
 | **Diseño emocional** | Jardín, revisión del registro, descripción textual y orientación educativa. |
-| **Accesibilidad** | Teclado, controles etiquetados, mensajes de estado, contraste, texto grande y reducción de movimiento. |
+| **Accesibilidad** | Teclado, controles etiquetados, mensajes de estado, contraste, texto grande y reducción de movimiento; [auditoría axe y Lighthouse](docs/evidence/pc04/README.md). |
 
 ## 8. Estructura del repositorio
 
@@ -218,15 +238,21 @@ Alcancia-Viva/
 ├── data/                        # Datos ficticios y escenarios de demostración
 ├── docs/
 │   ├── architecture/c4-model.md # Diagramas y decisiones de arquitectura
-│   ├── evidence/                # Capturas y resultados de verificaciones
+│   ├── evidence/                # Capturas y resultados de verificaciones (pc04/: rediseño)
+│   ├── trazabilidad-pc04.md     # Estado de los requisitos de la PC04
+│   ├── VOZ.md                   # Voz conversacional y compatibilidad
 │   ├── INSTALL.md              # Instalación y primer uso
 │   ├── SUPABASE.md             # Backend, permisos y pruebas
 │   └── NETLIFY.md              # Publicación y dominio
 ├── public/                      # Jardín, iconos, manifiesto y service worker
 ├── scripts/                     # Verificaciones del dominio y del asistente
+│   └── evidence/                # Capturas, auditorías y pruebas de interfaz (PC04)
 ├── src/
+│   ├── components/              # Navegación, avisos, voz, estados vacíos y gráficos
+│   ├── hooks/                   # Dictado, conversación por voz, tema y animaciones
 │   ├── live/                    # Interfaz colaborativa, cliente y reglas
-│   └── services/voice/          # Reconocimiento y síntesis de voz
+│   ├── services/voice/          # Intenciones, síntesis, earcons y grabación
+│   └── styles/tokens.css        # Tokens de diseño (claro, oscuro y alto contraste)
 ├── supabase/
 │   ├── functions/               # Asistente educativo en el servidor
 │   ├── migrations/              # Esquema, permisos y operaciones
@@ -250,10 +276,12 @@ Las pruebas automáticas de [tests/](tests/) se ejecutan por funcionalidad:
 | Comando | Qué comprueba |
 | --- | --- |
 | `npm run test:garden` | Jardín dinámico y vista previa de macetas por meta. |
-| `npm run test:history` | Historial de aportes por integrante. |
-| `npm run test:voice` | Dictado de preguntas al asistente. |
-| `npm run test:playback` | Pausa y reanudación de la lectura de respuestas. |
+| `npm run test:history` | Historial de aportes por integrante y línea de tiempo (agrupación por día, filtros, gastos de la semana). |
+| `npm run test:voice` | Dictado y router de intenciones de voz (navegación, consultas, montos dichos, metas, sí/no, repreguntas). |
+| `npm run test:playback` | Lectura de respuestas: pausa, voz es-PE, velocidad, resaltado, earcons y respaldo de grabación. |
 | `npm run test:recovery` | Recuperación de contraseña por correo. |
+
+Las pruebas de interfaz de la PC04 (Playwright con backend y voz simulados, sin tocar el Supabase compartido) están en [scripts/evidence/](scripts/evidence/) y se describen en [docs/evidence/pc04/](docs/evidence/pc04/README.md).
 
 Las pruebas de integración registraron autenticación, aprobación de solicitudes, privacidad de gastos, múltiples grupos y metas, aportes simultáneos, ausencia de duplicados y eventos Realtime. Sus resultados y capturas están en [docs/evidence/](docs/evidence/), incluida la [verificación del despliegue en Netlify](docs/evidence/netlify-deployment.json).
 

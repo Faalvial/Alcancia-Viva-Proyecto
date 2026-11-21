@@ -92,10 +92,12 @@
   position: absolute;
   inset: 0;
   z-index: -1;
+  /* Fase 5: velo superior más denso para que el texto blanco supere 4.5:1 sobre la foto. */
   background: linear-gradient(
     180deg,
-    #143b228c,
-    transparent 40%,
+    #0f2d1ab8,
+    #143b228c 22%,
+    transparent 45%,
     transparent 80%,
     #f2e2b522
   );
@@ -106,7 +108,7 @@
   padding: 1.5rem 1.4rem 0;
   min-height: 90px;
   color: white;
-  text-shadow: 0 1px 8px #112d2355;
+  text-shadow: 0 1px 8px #112d2399;
 }
 
 .ag-scene-heading > span {

@@ -80,7 +80,7 @@ export function Garden({goals,groups,selectedId,today,prefs,onSelect,onContribut
       <div className="ag-summary"><div className="ag-average" style={{'--ag-average':`${summary.percent}%`} as React.CSSProperties}><strong>{gardenNumber(summary.percent)} %</strong></div><div><h2>Tu jardín, en conjunto</h2><p>Promedio de {summary.count} meta{summary.count===1?'':'s'} de este espacio. Cada una tiene el mismo peso.</p></div><span className="ag-achievement">{summary.completed} meta{summary.completed===1?'':'s'} florecida{summary.completed===1?'':'s'}</span></div>
       <div className="ag-add"><button className="av-secondary" onClick={onCreate}>＋ Crear una meta</button></div>
     </div>
-    {selected&&rhythm&&<aside id="av-garden-detail" className="ag-detail" aria-labelledby="av-garden-goal-title">
+    {selected&&rhythm&&<section id="av-garden-detail" className="ag-detail" aria-labelledby="av-garden-goal-title">
       <div className="ag-detail-top"><span className="ag-eyebrow">TU MACETA SELECCIONADA</span><span className="ag-type">{groupLabel(selected,groups)}</span></div>
       <h2 id="av-garden-goal-title">{selected.title}</h2><p className="ag-stage-name">{stage.name}</p>
       <div className="ag-money"><strong>{soles(savedShown)}</strong><span>de {soles(selected.target_amount)}</span></div>
@@ -90,7 +90,7 @@ export function Garden({goals,groups,selectedId,today,prefs,onSelect,onContribut
       <dl className="ag-deadline"><div><dt>Fecha objetivo</dt><dd>{goalDateLabel(selected.target_date)}</dd></div><div><dt>Tiempo transcurrido</dt><dd>{rhythm.expected===null?'Sin referencia de plazo':`${gardenNumber(rhythm.expected)} % del plazo`}</dd></div></dl>
       <button className="ag-contribute" onClick={()=>onContribute(selected)}>Registrar un aporte <span aria-hidden="true">↗</span></button>
       <p className="ag-confirm-help">El aporte irá a <strong>{selected.title}</strong>. Revisarás el monto antes de guardarlo.</p>
-    </aside>}
+    </section>}
     </div>
     <p className="ag-sr-only" role="status" aria-live="polite">{selected?`Maceta seleccionada: ${selected.title}. ${gardenNumber(value)} por ciento. ${stage.name}. ${rhythm?.label}.`:'Aún no hay metas en este espacio.'}</p>
   </section>;

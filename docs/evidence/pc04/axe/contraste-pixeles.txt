@@ -1,0 +1,14 @@
+  6.89 OK  .ag-scene-heading > span · oscuro 1440
+  6.04 OK  .ag-scene-heading > p · grande 375
+  9.71 OK  .ag-plant-label strong · grande 375
+  4.88 OK  .ag-plant-label small · grande 375
+  6.49 OK  .ag-plant-label b · grande 375
+  7.13 OK  .ag-scene-foot > span · grande 1440
+ 12.77 OK  .av-gauge-text strong · normal 375
+  6.31 OK  .av-gauge-text span · normal 375
+ 12.77 OK  .av-week-label · normal 375
+  7.17 OK  .ag-card-type · oscuro 1440
+ 12.77 OK  .av-goal-ring-label · normal 375
+  5.48 OK  .av-auth .av-eyebrow · normal 1440
+ 11.40 OK  .av-auth h1 · normal 1440
+  5.86 OK  .av-welcome > p:not(.av-eyebrow) · normal 1440

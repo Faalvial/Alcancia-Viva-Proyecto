@@ -1,0 +1,650 @@
+[
+  {
+    "screen": "acceso",
+    "width": 375,
+    "mode": "normal",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 31
+  },
+  {
+    "screen": "jardin",
+    "width": 375,
+    "mode": "normal",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 47
+  },
+  {
+    "screen": "metas",
+    "width": 375,
+    "mode": "normal",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 38
+  },
+  {
+    "screen": "grupos",
+    "width": 375,
+    "mode": "normal",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 39
+  },
+  {
+    "screen": "movimientos",
+    "width": 375,
+    "mode": "normal",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 44
+  },
+  {
+    "screen": "asistente",
+    "width": 375,
+    "mode": "normal",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 39
+  },
+  {
+    "screen": "preferencias",
+    "width": 375,
+    "mode": "normal",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 40
+  },
+  {
+    "screen": "registro",
+    "width": 375,
+    "mode": "normal",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 27
+  },
+  {
+    "screen": "voz",
+    "width": 375,
+    "mode": "normal",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 22
+  },
+  {
+    "screen": "acceso",
+    "width": 1440,
+    "mode": "normal",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 31
+  },
+  {
+    "screen": "jardin",
+    "width": 1440,
+    "mode": "normal",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 47
+  },
+  {
+    "screen": "metas",
+    "width": 1440,
+    "mode": "normal",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 38
+  },
+  {
+    "screen": "grupos",
+    "width": 1440,
+    "mode": "normal",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 39
+  },
+  {
+    "screen": "movimientos",
+    "width": 1440,
+    "mode": "normal",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 44
+  },
+  {
+    "screen": "asistente",
+    "width": 1440,
+    "mode": "normal",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 39
+  },
+  {
+    "screen": "preferencias",
+    "width": 1440,
+    "mode": "normal",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 40
+  },
+  {
+    "screen": "registro",
+    "width": 1440,
+    "mode": "normal",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 27
+  },
+  {
+    "screen": "voz",
+    "width": 1440,
+    "mode": "normal",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 22
+  },
+  {
+    "screen": "acceso",
+    "width": 375,
+    "mode": "alto-contraste",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 31
+  },
+  {
+    "screen": "jardin",
+    "width": 375,
+    "mode": "alto-contraste",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 47
+  },
+  {
+    "screen": "metas",
+    "width": 375,
+    "mode": "alto-contraste",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 38
+  },
+  {
+    "screen": "grupos",
+    "width": 375,
+    "mode": "alto-contraste",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 39
+  },
+  {
+    "screen": "movimientos",
+    "width": 375,
+    "mode": "alto-contraste",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 44
+  },
+  {
+    "screen": "asistente",
+    "width": 375,
+    "mode": "alto-contraste",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 39
+  },
+  {
+    "screen": "preferencias",
+    "width": 375,
+    "mode": "alto-contraste",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 40
+  },
+  {
+    "screen": "registro",
+    "width": 375,
+    "mode": "alto-contraste",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 27
+  },
+  {
+    "screen": "voz",
+    "width": 375,
+    "mode": "alto-contraste",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 22
+  },
+  {
+    "screen": "acceso",
+    "width": 1440,
+    "mode": "alto-contraste",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 31
+  },
+  {
+    "screen": "jardin",
+    "width": 1440,
+    "mode": "alto-contraste",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 47
+  },
+  {
+    "screen": "metas",
+    "width": 1440,
+    "mode": "alto-contraste",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 38
+  },
+  {
+    "screen": "grupos",
+    "width": 1440,
+    "mode": "alto-contraste",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 39
+  },
+  {
+    "screen": "movimientos",
+    "width": 1440,
+    "mode": "alto-contraste",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 44
+  },
+  {
+    "screen": "asistente",
+    "width": 1440,
+    "mode": "alto-contraste",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 39
+  },
+  {
+    "screen": "preferencias",
+    "width": 1440,
+    "mode": "alto-contraste",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 40
+  },
+  {
+    "screen": "registro",
+    "width": 1440,
+    "mode": "alto-contraste",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 27
+  },
+  {
+    "screen": "voz",
+    "width": 1440,
+    "mode": "alto-contraste",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 22
+  },
+  {
+    "screen": "acceso",
+    "width": 375,
+    "mode": "texto-200",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 31
+  },
+  {
+    "screen": "jardin",
+    "width": 375,
+    "mode": "texto-200",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 47
+  },
+  {
+    "screen": "metas",
+    "width": 375,
+    "mode": "texto-200",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 38
+  },
+  {
+    "screen": "grupos",
+    "width": 375,
+    "mode": "texto-200",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 39
+  },
+  {
+    "screen": "movimientos",
+    "width": 375,
+    "mode": "texto-200",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 44
+  },
+  {
+    "screen": "asistente",
+    "width": 375,
+    "mode": "texto-200",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 39
+  },
+  {
+    "screen": "preferencias",
+    "width": 375,
+    "mode": "texto-200",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 40
+  },
+  {
+    "screen": "registro",
+    "width": 375,
+    "mode": "texto-200",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 27
+  },
+  {
+    "screen": "voz",
+    "width": 375,
+    "mode": "texto-200",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 22
+  },
+  {
+    "screen": "acceso",
+    "width": 1440,
+    "mode": "texto-200",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 31
+  },
+  {
+    "screen": "jardin",
+    "width": 1440,
+    "mode": "texto-200",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 47
+  },
+  {
+    "screen": "metas",
+    "width": 1440,
+    "mode": "texto-200",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 38
+  },
+  {
+    "screen": "grupos",
+    "width": 1440,
+    "mode": "texto-200",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 39
+  },
+  {
+    "screen": "movimientos",
+    "width": 1440,
+    "mode": "texto-200",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 44
+  },
+  {
+    "screen": "asistente",
+    "width": 1440,
+    "mode": "texto-200",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 39
+  },
+  {
+    "screen": "preferencias",
+    "width": 1440,
+    "mode": "texto-200",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 40
+  },
+  {
+    "screen": "registro",
+    "width": 1440,
+    "mode": "texto-200",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 27
+  },
+  {
+    "screen": "voz",
+    "width": 1440,
+    "mode": "texto-200",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 23
+  },
+  {
+    "screen": "acceso",
+    "width": 375,
+    "mode": "oscuro",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 31
+  },
+  {
+    "screen": "jardin",
+    "width": 375,
+    "mode": "oscuro",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 47
+  },
+  {
+    "screen": "metas",
+    "width": 375,
+    "mode": "oscuro",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 38
+  },
+  {
+    "screen": "grupos",
+    "width": 375,
+    "mode": "oscuro",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 39
+  },
+  {
+    "screen": "movimientos",
+    "width": 375,
+    "mode": "oscuro",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 44
+  },
+  {
+    "screen": "asistente",
+    "width": 375,
+    "mode": "oscuro",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 39
+  },
+  {
+    "screen": "preferencias",
+    "width": 375,
+    "mode": "oscuro",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 40
+  },
+  {
+    "screen": "registro",
+    "width": 375,
+    "mode": "oscuro",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 27
+  },
+  {
+    "screen": "voz",
+    "width": 375,
+    "mode": "oscuro",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 22
+  },
+  {
+    "screen": "acceso",
+    "width": 1440,
+    "mode": "oscuro",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 31
+  },
+  {
+    "screen": "jardin",
+    "width": 1440,
+    "mode": "oscuro",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 47
+  },
+  {
+    "screen": "metas",
+    "width": 1440,
+    "mode": "oscuro",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 38
+  },
+  {
+    "screen": "grupos",
+    "width": 1440,
+    "mode": "oscuro",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 39
+  },
+  {
+    "screen": "movimientos",
+    "width": 1440,
+    "mode": "oscuro",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 44
+  },
+  {
+    "screen": "asistente",
+    "width": 1440,
+    "mode": "oscuro",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 39
+  },
+  {
+    "screen": "preferencias",
+    "width": 1440,
+    "mode": "oscuro",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 40
+  },
+  {
+    "screen": "registro",
+    "width": 1440,
+    "mode": "oscuro",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 1,
+    "passes": 27
+  },
+  {
+    "screen": "voz",
+    "width": 1440,
+    "mode": "oscuro",
+    "violations": 0,
+    "serious": 0,
+    "incomplete": 0,
+    "passes": 22
+  }
+]

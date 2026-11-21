@@ -1,0 +1,432 @@
+{
+  "screen": "jardin",
+  "width": 1440,
+  "mode": "oscuro",
+  "violations": [],
+  "serious": 0,
+  "incomplete": [
+    {
+      "id": "color-contrast",
+      "impact": "serious",
+      "tags": [
+        "cat.color",
+        "wcag2aa",
+        "wcag143",
+        "TTv5",
+        "TT13.c",
+        "EN-301-549",
+        "EN-9.1.4.3",
+        "ACT"
+      ],
+      "help": "Elements must meet minimum color contrast ratio thresholds",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=playwright",
+      "nodes": [
+        {
+          "target": [
+            ".ag-scene-heading > span"
+          ],
+          "html": "<span>EL JARDÍN DE TUS METAS</span>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element",
+          "data": {
+            "fontSize": "7.1pt (9.424px)",
+            "fontWeight": "bold",
+            "messageKey": "pseudoContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            ".ag-scene-heading > p"
+          ],
+          "html": "<p>Tu jardín está creciendo</p>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element",
+          "data": {
+            "fontSize": "18.8pt (25.08px)",
+            "fontWeight": "normal",
+            "messageKey": "pseudoContent",
+            "expectedContrastRatio": "3:1"
+          }
+        },
+        {
+          "target": [
+            "button[data-goal=\"g1\"] > .ag-plant-label > strong"
+          ],
+          "html": "<strong>Laptop para la universidad</strong>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element",
+          "data": {
+            "fontSize": "8.7pt (11.552px)",
+            "fontWeight": "bold",
+            "messageKey": "pseudoContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            "button[data-goal=\"g1\"] > .ag-plant-label > small"
+          ],
+          "html": "<small>Personal</small>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element",
+          "data": {
+            "fontSize": "7.6pt (10.1658px)",
+            "fontWeight": "normal",
+            "messageKey": "pseudoContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            "button[data-goal=\"g1\"] > .ag-plant-label > b"
+          ],
+          "html": "<b>58 %</b>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element",
+          "data": {
+            "fontSize": "10.0pt (13.2848px)",
+            "fontWeight": "bold",
+            "messageKey": "pseudoContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            "button[data-goal=\"g2\"] > .ag-plant-label > strong"
+          ],
+          "html": "<strong>Fondo de emergencia</strong>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element",
+          "data": {
+            "fontSize": "8.7pt (11.552px)",
+            "fontWeight": "bold",
+            "messageKey": "pseudoContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            "button[data-goal=\"g2\"] > .ag-plant-label > small"
+          ],
+          "html": "<small>Personal</small>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element",
+          "data": {
+            "fontSize": "7.6pt (10.1658px)",
+            "fontWeight": "normal",
+            "messageKey": "pseudoContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            "button[data-goal=\"g2\"] > .ag-plant-label > b"
+          ],
+          "html": "<b>18 %</b>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element",
+          "data": {
+            "fontSize": "10.0pt (13.2848px)",
+            "fontWeight": "bold",
+            "messageKey": "pseudoContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            "button[data-goal=\"g3\"] > .ag-plant-label > strong"
+          ],
+          "html": "<strong>Viaje a Cusco</strong>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element",
+          "data": {
+            "fontSize": "8.7pt (11.552px)",
+            "fontWeight": "bold",
+            "messageKey": "pseudoContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            "button[data-goal=\"g3\"] > .ag-plant-label > small"
+          ],
+          "html": "<small>Grupo · Viaje de promoción</small>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element",
+          "data": {
+            "fontSize": "7.6pt (10.1658px)",
+            "fontWeight": "normal",
+            "messageKey": "pseudoContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            "button[data-goal=\"g3\"] > .ag-plant-label > b"
+          ],
+          "html": "<b>95 %</b>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element",
+          "data": {
+            "fontSize": "10.0pt (13.2848px)",
+            "fontWeight": "bold",
+            "messageKey": "pseudoContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            "button[data-goal=\"g4\"] > .ag-plant-label > strong"
+          ],
+          "html": "<strong>Bicicleta</strong>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element",
+          "data": {
+            "fontSize": "8.7pt (11.552px)",
+            "fontWeight": "bold",
+            "messageKey": "pseudoContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            "button[data-goal=\"g4\"] > .ag-plant-label > small"
+          ],
+          "html": "<small>Personal</small>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element",
+          "data": {
+            "fontSize": "7.6pt (10.1658px)",
+            "fontWeight": "normal",
+            "messageKey": "pseudoContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            "button[data-goal=\"g4\"] > .ag-plant-label > b"
+          ],
+          "html": "<b>0 %</b>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element",
+          "data": {
+            "fontSize": "10.0pt (13.2848px)",
+            "fontWeight": "bold",
+            "messageKey": "pseudoContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            ".ag-scene-foot > span:nth-child(1)"
+          ],
+          "html": "<span>Cada maceta representa una meta</span>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element",
+          "data": {
+            "fontSize": "7.8pt (10.336px)",
+            "fontWeight": "normal",
+            "messageKey": "pseudoContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            ".ag-scene-foot > span:nth-child(2)"
+          ],
+          "html": "<span>4 macetas</span>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element",
+          "data": {
+            "fontSize": "7.8pt (10.336px)",
+            "fontWeight": "normal",
+            "messageKey": "pseudoContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            ".ag-pace-icon"
+          ],
+          "html": "<span class=\"ag-pace-icon\" aria-hidden=\"true\">↻</span>",
+          "failureSummary": "Fix any of the following:\n  Element content contains only non-text characters",
+          "data": {
+            "messageKey": "nonBmp"
+          }
+        },
+        {
+          "target": [
+            ".av-gauge-text > strong"
+          ],
+          "html": "<strong>S/&nbsp;22.00</strong>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it is overlapped by another element",
+          "data": {
+            "contrastRatio": 0,
+            "fontSize": "18.0pt (24px)",
+            "fontWeight": "normal",
+            "messageKey": "bgOverlap",
+            "expectedContrastRatio": "3:1"
+          }
+        },
+        {
+          "target": [
+            ".av-gauge-text > span"
+          ],
+          "html": "<span>de S/&nbsp;300.00</span>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because element contains an image node",
+          "data": {
+            "contrastRatio": 0,
+            "fontSize": "10.2pt (13.6px)",
+            "fontWeight": "normal",
+            "messageKey": "imgNode",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            "text[x=\"16\"]"
+          ],
+          "html": "<text class=\"av-week-label\" x=\"16\" y=\"84\" text-anchor=\"middle\">L</text>",
+          "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content",
+          "data": {
+            "contrastRatio": 0,
+            "fontSize": "8.3pt (11px)",
+            "fontWeight": "normal",
+            "messageKey": "shortTextContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            "text[x=\"48\"]"
+          ],
+          "html": "<text class=\"av-week-label\" x=\"48\" y=\"84\" text-anchor=\"middle\">M</text>",
+          "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content",
+          "data": {
+            "contrastRatio": 0,
+            "fontSize": "8.3pt (11px)",
+            "fontWeight": "normal",
+            "messageKey": "shortTextContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            "text[x=\"80\"]"
+          ],
+          "html": "<text class=\"av-week-label\" x=\"80\" y=\"84\" text-anchor=\"middle\">M</text>",
+          "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content",
+          "data": {
+            "contrastRatio": 0,
+            "fontSize": "8.3pt (11px)",
+            "fontWeight": "normal",
+            "messageKey": "shortTextContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            "text[x=\"112\"]"
+          ],
+          "html": "<text class=\"av-week-label\" x=\"112\" y=\"84\" text-anchor=\"middle\">J</text>",
+          "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content",
+          "data": {
+            "contrastRatio": 0,
+            "fontSize": "8.3pt (11px)",
+            "fontWeight": "normal",
+            "messageKey": "shortTextContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            "text[x=\"144\"]"
+          ],
+          "html": "<text class=\"av-week-label\" x=\"144\" y=\"84\" text-anchor=\"middle\">V</text>",
+          "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content",
+          "data": {
+            "contrastRatio": 0,
+            "fontSize": "8.3pt (11px)",
+            "fontWeight": "normal",
+            "messageKey": "shortTextContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            "text[x=\"176\"]"
+          ],
+          "html": "<text class=\"av-week-label\" x=\"176\" y=\"84\" text-anchor=\"middle\">S</text>",
+          "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content",
+          "data": {
+            "contrastRatio": 0,
+            "fontSize": "8.3pt (11px)",
+            "fontWeight": "bold",
+            "messageKey": "shortTextContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            "text[x=\"208\"]"
+          ],
+          "html": "<text class=\"av-week-label\" x=\"208\" y=\"84\" text-anchor=\"middle\">D</text>",
+          "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content",
+          "data": {
+            "contrastRatio": 0,
+            "fontSize": "8.3pt (11px)",
+            "fontWeight": "normal",
+            "messageKey": "shortTextContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        }
+      ]
+    }
+  ],
+  "passes": 47,
+  "url": "http://localhost:4173/",
+  "timestamp": "2026-11-21T20:37:39.855Z",
+  "engine": "axe-core 4.10.3",
+  "tags": [
+    "wcag2a",
+    "wcag2aa",
+    "wcag21a",
+    "wcag21aa",
+    "wcag22aa",
+    "best-practice"
+  ],
+  "passesIds": [
+    "aria-allowed-attr",
+    "aria-allowed-role",
+    "aria-conditional-attr",
+    "aria-deprecated-role",
+    "aria-hidden-body",
+    "aria-hidden-focus",
+    "aria-meter-name",
+    "aria-prohibited-attr",
+    "aria-required-attr",
+    "aria-roles",
+    "aria-valid-attr-value",
+    "aria-valid-attr",
+    "avoid-inline-spacing",
+    "button-name",
+    "bypass",
+    "color-contrast",
+    "definition-list",
+    "dlitem",
+    "document-title",
+    "duplicate-id-aria",
+    "empty-heading",
+    "empty-table-header",
+    "form-field-multiple-labels",
+    "heading-order",
+    "html-has-lang",
+    "html-lang-valid",
+    "label-title-only",
+    "landmark-banner-is-top-level",
+    "landmark-main-is-top-level",
+    "landmark-no-duplicate-banner",
+    "landmark-no-duplicate-main",
+    "landmark-one-main",
+    "landmark-unique",
+    "link-name",
+    "meta-viewport-large",
+    "meta-viewport",
+    "nested-interactive",
+    "page-has-heading-one",
+    "region",
+    "scope-attr-valid",
+    "select-name",
+    "skip-link",
+    "tabindex",
+    "table-duplicate-name",
+    "target-size",
+    "td-headers-attr",
+    "th-has-data-cells"
+  ]
+}

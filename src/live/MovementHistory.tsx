@@ -47,7 +47,7 @@ export function MovementHistory({snapshot,profile,scope,busy,onUndo,onRegister}:
     </section>}
     {movements.length>0&&<div className="av-history-tools">
       <div className="av-chips" role="group" aria-label="Filtrar por tipo">{filters.map(f=><button key={f.id} type="button" className={`av-secondary av-chip ${f.id!=='all'?`av-tone-${MOVEMENT_META[f.id].tone}`:''}`} aria-pressed={typeFilter===f.id} onClick={()=>setTypeFilter(f.id)}>{f.id!=='all'&&<MovementTypeIcon type={f.id} size={20} className="av-chip-icon"/>}{f.label}</button>)}</div>
-      <label className="av-search"><span>Buscar en movimientos</span><span className="av-search-field"><Search size={20} aria-hidden="true"/><input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Ej.: almuerzo, laptop, transporte" maxLength={100}/></span></label>
+      <label className="av-search"><span>Buscar en movimientos</span><span className="av-search-field"><Search size={20} aria-hidden="true"/><input type="search" autoComplete="off" spellCheck={false} value={query} onChange={e=>setQuery(e.target.value)} placeholder="Ej.: almuerzo, laptop, transporte…" maxLength={100}/></span></label>
       <p className="av-history-count" role="status" aria-live="polite">{visible.length===movements.length?`${movements.length} movimiento${movements.length===1?'':'s'}`:`${visible.length} de ${movements.length} movimientos`}</p>
     </div>}
     {days.map(day=><section className="av-day" key={day.day} aria-labelledby={`av-day-${day.day}`}>

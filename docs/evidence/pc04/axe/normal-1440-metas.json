@@ -1,0 +1,183 @@
+{
+  "screen": "metas",
+  "width": 1440,
+  "mode": "normal",
+  "violations": [],
+  "serious": 0,
+  "incomplete": [
+    {
+      "id": "color-contrast",
+      "impact": "serious",
+      "tags": [
+        "cat.color",
+        "wcag2aa",
+        "wcag143",
+        "TTv5",
+        "TT13.c",
+        "EN-301-549",
+        "EN-9.1.4.3",
+        "ACT"
+      ],
+      "help": "Elements must meet minimum color contrast ratio thresholds",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=playwright",
+      "nodes": [
+        {
+          "target": [
+            ".av-stage-3 > .ag-card-art > .ag-card-type"
+          ],
+          "html": "<span class=\"ag-card-type\">Personal</span>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element",
+          "data": {
+            "fontSize": "7.8pt (10.4px)",
+            "fontWeight": "normal",
+            "messageKey": "pseudoContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            ".av-stage-3.av-goal-ring[aria-hidden=\"true\"] > .av-goal-ring-label"
+          ],
+          "html": "<span class=\"av-goal-ring-label\">58 %</span>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element",
+          "data": {
+            "fontSize": "8.6pt (11.52px)",
+            "fontWeight": "bold",
+            "messageKey": "pseudoContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            ".av-stage-1 > .ag-card-art > .ag-card-type"
+          ],
+          "html": "<span class=\"ag-card-type\">Personal</span>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element",
+          "data": {
+            "fontSize": "7.8pt (10.4px)",
+            "fontWeight": "normal",
+            "messageKey": "pseudoContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            ".av-stage-1.av-goal-ring[aria-hidden=\"true\"] > .av-goal-ring-label"
+          ],
+          "html": "<span class=\"av-goal-ring-label\">18 %</span>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element",
+          "data": {
+            "fontSize": "8.6pt (11.52px)",
+            "fontWeight": "bold",
+            "messageKey": "pseudoContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            ".av-stage-4 > .ag-card-art > .ag-card-type"
+          ],
+          "html": "<span class=\"ag-card-type\">Grupo · Viaje de promoción</span>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element",
+          "data": {
+            "fontSize": "7.8pt (10.4px)",
+            "fontWeight": "normal",
+            "messageKey": "pseudoContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            ".av-stage-4.av-goal-ring[aria-hidden=\"true\"] > .av-goal-ring-label"
+          ],
+          "html": "<span class=\"av-goal-ring-label\">95 %</span>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element",
+          "data": {
+            "fontSize": "8.6pt (11.52px)",
+            "fontWeight": "bold",
+            "messageKey": "pseudoContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            ".av-stage-0 > .ag-card-art > .ag-card-type"
+          ],
+          "html": "<span class=\"ag-card-type\">Personal</span>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element",
+          "data": {
+            "fontSize": "7.8pt (10.4px)",
+            "fontWeight": "normal",
+            "messageKey": "pseudoContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        },
+        {
+          "target": [
+            ".av-stage-0.av-goal-ring[aria-hidden=\"true\"] > .av-goal-ring-label"
+          ],
+          "html": "<span class=\"av-goal-ring-label\">0 %</span>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element",
+          "data": {
+            "fontSize": "8.6pt (11.52px)",
+            "fontWeight": "bold",
+            "messageKey": "pseudoContent",
+            "expectedContrastRatio": "4.5:1"
+          }
+        }
+      ]
+    }
+  ],
+  "passes": 38,
+  "url": "http://localhost:4173/?tab=metas",
+  "timestamp": "2026-11-21T20:35:55.296Z",
+  "engine": "axe-core 4.10.3",
+  "tags": [
+    "wcag2a",
+    "wcag2aa",
+    "wcag21a",
+    "wcag21aa",
+    "wcag22aa",
+    "best-practice"
+  ],
+  "passesIds": [
+    "aria-allowed-attr",
+    "aria-allowed-role",
+    "aria-conditional-attr",
+    "aria-deprecated-role",
+    "aria-hidden-body",
+    "aria-hidden-focus",
+    "aria-prohibited-attr",
+    "aria-required-attr",
+    "aria-roles",
+    "aria-valid-attr-value",
+    "aria-valid-attr",
+    "button-name",
+    "bypass",
+    "color-contrast",
+    "document-title",
+    "empty-heading",
+    "form-field-multiple-labels",
+    "heading-order",
+    "html-has-lang",
+    "html-lang-valid",
+    "label-title-only",
+    "landmark-banner-is-top-level",
+    "landmark-main-is-top-level",
+    "landmark-no-duplicate-banner",
+    "landmark-no-duplicate-main",
+    "landmark-one-main",
+    "landmark-unique",
+    "link-name",
+    "meta-viewport-large",
+    "meta-viewport",
+    "nested-interactive",
+    "page-has-heading-one",
+    "region",
+    "select-name",
+    "skip-link",
+    "summary-name",
+    "tabindex",
+    "target-size"
+  ]
+}

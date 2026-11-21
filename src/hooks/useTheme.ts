@@ -15,7 +15,7 @@ export function applyTheme(preference:ThemePreference) {
   const root=document.documentElement;
   root.dataset.theme=dark?'dark':'light';
   root.dataset.themePreference=preference;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content',dark?'#0d1a13':'#2e7d32');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content',dark?'#0d1a13':'#f7f8f3');
   try{localStorage.setItem(KEY,preference);}catch{/* sin almacenamiento */}
 }
 

@@ -30,3 +30,19 @@ export function AppNav({tab,onChange,badges={}}:{tab:string;onChange:(id:TabId)=
     </button>;})}
   </nav>;
 }
+
+/** Nombre de cada pestaña en la URL (?tab=metas), en español. */
+export const TAB_SLUGS:Record<TabId,string>={garden:'jardin',goals:'metas',groups:'grupos',history:'movimientos',assistant:'asistente',settings:'preferencias'};
+
+export function tabFromUrl(search:string):TabId {
+  const slug=new URLSearchParams(search).get('tab');
+  return (Object.entries(TAB_SLUGS).find(([,value])=>value===slug)?.[0] as TabId|undefined)||'garden';
+}
+
+/** La misma URL con la pestaña actual; «Mi jardín» no añade parámetro. */
+export function urlWithTab(href:string,tab:string) {
+  const url=new URL(href);
+  const slug=TAB_SLUGS[tab as TabId];
+  if(!slug||tab==='garden')url.searchParams.delete('tab');else url.searchParams.set('tab',slug);
+  return url.toString();
+}
