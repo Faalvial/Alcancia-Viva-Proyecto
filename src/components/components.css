@@ -1,0 +1,1483 @@
+/*
+ * Componentes del rediseño PC04 (Fase 2). Solo tokens de src/styles/tokens.css:
+ * el tema oscuro y el alto contraste se aplican redefiniendo variables.
+ * Los selectores llevan .av-app / .av-page delante cuando deben ganar a las
+ * reglas genéricas de botones y párrafos de live.css.
+ */
+
+.av-sr-only {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- Tonos semánticos por tipo de movimiento ---------- */
+
+.av-tone-gasto {
+  --tone: var(--c-gasto);
+  --tone-soft: var(--c-gasto-soft);
+}
+
+.av-tone-ingreso {
+  --tone: var(--c-ingreso);
+  --tone-soft: var(--c-ingreso-soft);
+}
+
+.av-tone-ahorro {
+  --tone: var(--c-ahorro);
+  --tone-soft: var(--c-ahorro-soft);
+}
+
+.av-type-icon {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--av-radius-pill);
+  background: var(--tone-soft, var(--c-ahorro-soft));
+  color: var(--tone, var(--c-ahorro));
+}
+
+.av-contrast .av-type-icon {
+  border: 1px solid currentColor;
+}
+
+/* Revisión del composer: borde e icono con el color del tipo elegido. */
+.av-app .av-review {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border-left-color: var(--tone, var(--av-field-line));
+  color: var(--ink);
+}
+
+.av-app .av-review .av-type-icon {
+  width: 2rem;
+  height: 2rem;
+}
+
+/* ---------- Historial: filtros, buscador y línea de tiempo ---------- */
+
+.av-history-tools {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1.25rem 0 0.5rem;
+}
+
+.av-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.av-app .av-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  padding: 0.4rem 0.9rem 0.4rem 0.6rem;
+  border-radius: var(--av-radius-pill);
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  font-weight: 600;
+}
+
+.av-app .av-chip[data-all],
+.av-app .av-chip:not([class*="av-tone-"]) {
+  padding-left: 0.9rem;
+}
+
+.av-app .av-chip[aria-pressed="true"] {
+  background: var(--tone-soft, var(--c-ahorro-soft));
+  border-color: var(--tone, var(--accent));
+  box-shadow: inset 0 0 0 1px var(--tone, var(--accent));
+}
+
+.av-app .av-chip .av-chip-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  background: transparent;
+}
+
+.av-app .av-search {
+  margin: 0;
+}
+
+.av-search-field {
+  position: relative;
+  display: block;
+}
+
+.av-search-field svg {
+  position: absolute;
+  left: 0.8rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.av-app .av-search-field input {
+  padding-left: 2.6rem;
+}
+
+.av-app .av-history-count {
+  margin: 0;
+  font-size: 0.9em;
+}
+
+.av-day {
+  margin-top: 1.5rem;
+}
+
+.av-app .av-day-title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: var(--av-text-h3);
+  margin: 0 0 0.5rem;
+  color: var(--ink);
+}
+
+.av-app .av-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 1.25rem;
+  border-left: 2px solid var(--line);
+  display: grid;
+  gap: 0.6rem;
+}
+
+.av-app .av-timeline .av-movement {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.9rem;
+  margin: 0;
+  padding: 1rem;
+}
+
+/* Nudo de la línea de tiempo, a la altura del icono. */
+.av-app .av-timeline .av-movement::before {
+  content: "";
+  position: absolute;
+  left: calc(-1.25rem - 6px);
+  top: 1.95rem;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--av-radius-pill);
+  background: var(--tone);
+  box-shadow: 0 0 0 3px var(--bg);
+}
+
+.av-movement-body {
+  min-width: 0;
+}
+
+.av-app .av-movement-body h3 {
+  margin: 0.1rem 0 0.2rem;
+  font-size: 1em;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.av-movement-kind {
+  display: inline-block;
+  margin-right: 0.35rem;
+  font-size: 0.8em;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.av-app .av-movement-body p {
+  margin: 0.15rem 0;
+  font-size: 0.9em;
+  overflow-wrap: anywhere;
+}
+
+.av-movement-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.4rem;
+}
+
+.av-movement-amount {
+  font-family: var(--font-display);
+  font-size: 1.2em;
+  font-weight: 500;
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+/* El color va en la barra lateral de la tarjeta; el monto conserva la tinta de texto. */
+.av-app .av-timeline .av-movement {
+  border-left: 4px solid var(--tone);
+}
+
+.av-app .av-timeline .av-movement-reversed {
+  border-left-style: dashed;
+}
+
+.av-app .av-timeline .av-movement-reversed .av-movement-amount {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+@media (max-width: 479px) {
+  .av-app .av-timeline {
+    padding-left: 0.9rem;
+  }
+  .av-app .av-timeline .av-movement::before {
+    left: calc(-0.9rem - 6px);
+  }
+  .av-app .av-timeline .av-movement {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .av-movement-side {
+    grid-column: 2;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.av-large .av-timeline .av-movement {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.av-large .av-movement-side {
+  grid-column: auto;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.av-large .av-movement-amount {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Metas: anillo de etapa y «Te faltan» ---------- */
+
+.av-stage-0 { --stage: var(--c-stage-0); }
+.av-stage-1 { --stage: var(--c-stage-1); }
+.av-stage-2 { --stage: var(--c-stage-2); }
+.av-stage-3 { --stage: var(--c-stage-3); }
+.av-stage-4 { --stage: var(--c-stage-4); }
+.av-stage-5 { --stage: var(--c-stage-5); }
+
+.av-goal-ring {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--av-radius-pill);
+  background: var(--card);
+  box-shadow: var(--av-shadow-sm);
+}
+
+.av-goal-ring svg {
+  grid-area: 1 / 1;
+}
+
+.av-goal-ring-track,
+.av-goal-ring-value {
+  fill: none;
+  stroke-width: 6;
+}
+
+.av-goal-ring-track {
+  stroke: var(--line);
+}
+
+.av-goal-ring-value {
+  stroke: var(--stage);
+  stroke-linecap: round;
+  transition: stroke-dasharray var(--av-dur-slow) var(--av-ease-out);
+}
+
+.av-goal-ring-label {
+  grid-area: 1 / 1;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.av-app .av-goal-remaining {
+  margin: 0.2rem 0 0.6rem;
+  font-family: var(--font-display);
+  font-size: 1.4em;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+/* ---------- Grupos: tarjeta con maceta y avatares ---------- */
+
+.av-app .av-group-card {
+  --ag-sprite: url("/garden/cosmos-stages.webp");
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 0.5rem;
+  text-align: left;
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--av-radius-md);
+  font-weight: 400;
+}
+
+.av-app .av-group-card[aria-pressed="true"] {
+  border: 2px solid var(--accent);
+  background: var(--c-ahorro-soft);
+}
+
+.av-group-art {
+  display: block;
+  width: 5.5rem;
+}
+
+.av-group-art .ag-plant {
+  width: 100%;
+}
+
+.av-group-info {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.av-group-name {
+  font-size: 1.1em;
+  overflow-wrap: anywhere;
+}
+
+.av-group-role,
+.av-group-goal {
+  font-size: 0.85em;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.av-avatars {
+  display: flex;
+  margin-top: 0.3rem;
+  padding-left: 0.4rem;
+}
+
+.av-avatar.av-avatar-sm {
+  width: 2rem;
+  height: 2rem;
+  margin-left: -0.4rem;
+  font-size: 0.85rem;
+  box-shadow: 0 0 0 2px var(--card);
+}
+
+.av-avatar.av-avatar-more {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  background: var(--card);
+  color: var(--muted);
+}
+
+/* ---------- Badges ---------- */
+
+.av-nav-icon {
+  position: relative;
+}
+
+.av-nav-badge {
+  position: absolute;
+  top: -0.35rem;
+  right: -0.45rem;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.3rem;
+  border-radius: var(--av-radius-pill);
+  background: var(--c-ingreso);
+  color: var(--av-card);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.15rem;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--card);
+}
+
+@media (max-width: 767px) {
+  .av-nav-badge {
+    top: -0.1rem;
+    right: 0.35rem;
+  }
+}
+
+.av-count-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.6rem;
+  height: 1.6rem;
+  margin-left: 0.5rem;
+  padding: 0 0.4rem;
+  border-radius: var(--av-radius-pill);
+  background: var(--c-ingreso-soft);
+  color: var(--ink);
+  border: 1px solid var(--c-ingreso);
+  font-size: 0.8em;
+  vertical-align: middle;
+}
+
+/* ---------- Estado vacío ---------- */
+
+.av-empty-state {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 0.25rem;
+  margin: 1.5rem 0;
+  padding: 2rem 1.25rem;
+  border: 1px dashed var(--av-field-line);
+  border-radius: var(--av-radius-lg);
+  background: var(--card);
+}
+
+.av-app .av-empty-state h2,
+.av-app .av-empty-state h3 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: var(--av-text-h2);
+  margin: 0.5rem 0 0;
+}
+
+.av-app .av-empty-state p {
+  max-width: 34rem;
+  margin: 0.25rem 0 1rem;
+}
+
+.av-seed-pot {
+  width: 8.5rem;
+  height: auto;
+}
+
+.av-seed-pot-shadow {
+  fill: var(--line);
+  opacity: 0.6;
+}
+
+.av-seed-pot-body {
+  fill: var(--c-gasto);
+}
+
+.av-seed-pot-band,
+.av-seed-pot-rim {
+  fill: var(--c-gasto);
+  filter: brightness(0.85);
+}
+
+.av-seed-pot-soil {
+  fill: var(--c-stage-0);
+  filter: brightness(0.7);
+}
+
+.av-seed-pot-seed ellipse {
+  fill: var(--c-ingreso);
+}
+
+.av-seed-pot-seed-line {
+  stroke: var(--card);
+  stroke-width: 1.5;
+  opacity: 0.7;
+}
+
+.av-seed-pot-trail {
+  stroke: var(--muted);
+  stroke-width: 2;
+}
+
+/* ---------- Carga (skeleton) ---------- */
+
+.av-loading {
+  padding: 0;
+}
+
+.av-skeleton {
+  min-height: 100dvh;
+}
+
+.av-skel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 4vw;
+  border-bottom: 1px solid var(--line);
+  background: var(--card);
+}
+
+.av-skel-body {
+  display: grid;
+  gap: 0.9rem;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem 4vw;
+}
+
+.av-skel-block {
+  display: block;
+  background: var(--line);
+  border-radius: var(--av-radius-xs);
+  opacity: 0.55;
+}
+
+.av-skel-logo {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--av-radius-sm);
+}
+
+.av-skel-avatar {
+  width: 2.25rem;
+  height: 2.25rem;
+  margin-left: auto;
+  border-radius: var(--av-radius-pill);
+}
+
+.av-skel-line {
+  height: 1rem;
+}
+
+.av-skel-scene {
+  display: flex;
+  justify-content: space-around;
+  gap: 1rem;
+  padding: 1.5rem 1rem;
+  border-radius: var(--av-radius-lg);
+  border: 1px solid var(--line);
+  background: var(--card);
+}
+
+.av-skel-pot {
+  width: clamp(4rem, 18vw, 7.5rem);
+  height: auto;
+}
+
+.av-skel-shape {
+  fill: var(--line);
+  opacity: 0.7;
+}
+
+.av-skel-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1rem;
+}
+
+.av-skel-card {
+  height: 8rem;
+  border-radius: var(--av-radius-md);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .av-skel-block,
+  .av-skel-pot {
+    animation: av-skel-pulse 1.6s var(--av-ease-in-out) infinite;
+  }
+}
+
+@keyframes av-skel-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* ---------- Toast ---------- */
+
+.av-toast-region {
+  position: fixed;
+  z-index: 35;
+  left: 50%;
+  bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  width: min(32rem, calc(100% - 2rem));
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.av-toast {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.6rem 0.6rem 0.75rem;
+  border-radius: var(--av-radius-md);
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  box-shadow: var(--av-shadow-lg);
+  pointer-events: auto;
+  animation: av-toast-in var(--av-dur-base) var(--av-ease-out);
+}
+
+.av-app .av-toast p {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: var(--ink);
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+
+.av-app .av-toast .av-type-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+.av-app .av-toast-action {
+  padding: 0.4rem 0.75rem;
+  white-space: nowrap;
+}
+
+@keyframes av-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 767px) {
+  /* Sobre la tab bar y el FAB, a todo el ancho. */
+  .av-toast-region {
+    left: 1rem;
+    right: 1rem;
+    width: auto;
+    transform: none;
+    bottom: calc(var(--av-tabbar-height) + 56px + 2rem + env(safe-area-inset-bottom, 0px));
+  }
+  .av-large .av-toast-region {
+    bottom: calc(56px + 2rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Con poco ancho la acción baja a una segunda fila, bajo el texto. */
+@media (max-width: 767px) {
+  .av-toast {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .av-app .av-toast-action {
+    grid-row: 2;
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+.av-large .av-toast {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.av-large .av-toast-action {
+  grid-row: 2;
+  grid-column: 2;
+  justify-self: start;
+}
+
+/* ---------- Presupuesto: medidor y semana ---------- */
+
+.av-budget {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: end;
+  gap: 1.25rem;
+  margin: 0.5rem 0;
+}
+
+.av-gauge {
+  position: relative;
+  max-width: 17rem;
+  width: 100%;
+}
+
+.av-gauge svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.av-gauge-track,
+.av-gauge-value {
+  fill: none;
+  stroke-width: 14;
+  stroke-linecap: round;
+}
+
+.av-gauge-track {
+  stroke: var(--line);
+  opacity: 0.6;
+}
+
+.av-gauge-value {
+  stroke: var(--av-gauge-color, var(--c-ahorro));
+  transition:
+    stroke-dasharray var(--av-dur-slow) var(--av-ease-out),
+    stroke var(--av-dur-slow) linear;
+}
+
+.av-gauge-text {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  justify-items: center;
+  line-height: 1.15;
+}
+
+.av-gauge-text strong {
+  font-family: var(--font-display);
+  font-size: 1.5em;
+  font-weight: 500;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.av-gauge-text span {
+  font-size: 0.85em;
+  color: var(--muted);
+}
+
+.av-week {
+  margin: 0;
+  min-width: 0;
+}
+
+.av-week figcaption {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+
+.av-week svg {
+  display: block;
+  width: 100%;
+  max-width: 16rem;
+  height: auto;
+  overflow: visible;
+}
+
+.av-week-hit {
+  fill: transparent;
+}
+
+.av-week-bar {
+  fill: var(--c-gasto);
+  opacity: 0.55;
+}
+
+.av-week-day.is-today .av-week-bar {
+  opacity: 1;
+}
+
+.av-week-day:hover .av-week-bar {
+  opacity: 0.9;
+}
+
+.av-week-zero,
+.av-week-future {
+  stroke: var(--av-field-line);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.av-week-future {
+  stroke-dasharray: 2 4;
+  opacity: 0.7;
+}
+
+.av-week-base {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.av-week-label {
+  fill: var(--muted);
+  font-size: 11px;
+  font-family: var(--font-body);
+}
+
+.av-week-day.is-today .av-week-label {
+  fill: var(--ink);
+  font-weight: 700;
+}
+
+@media (max-width: 479px) {
+  .av-budget {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+}
+
+.av-large .av-budget {
+  grid-template-columns: 1fr;
+}
+
+/* ---------- Preferencias: tema ---------- */
+
+.av-theme-picker {
+  margin: 1rem 0;
+  padding: 0;
+  border: 0;
+}
+
+.av-theme-picker legend {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.av-theme-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.av-theme-picker legend,
+.av-theme-picker p {
+  flex-basis: 100%;
+}
+
+.av-app .av-theme-picker p {
+  margin: 0.25rem 0 0;
+  font-size: 0.9em;
+}
+
+.av-app label.av-theme-option {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  min-height: 44px;
+  padding: 0.4rem 0.9rem 0.4rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--av-radius-pill);
+  background: var(--card);
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.av-app .av-theme-option input {
+  width: 20px;
+  min-height: 20px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.av-app .av-theme-option:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--c-ahorro-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.av-app .av-theme-option:has(input:focus-visible) {
+  outline: 3px solid var(--av-focus);
+  outline-offset: 2px;
+}
+
+/* ---------- Acceso: degradado suave en la columna del jardín ---------- */
+
+.av-auth .av-welcome {
+  position: relative;
+  padding: 1.5rem;
+  /* El fondo sale hacia el margen de la página, pero nunca más allá de él (sin scroll horizontal). */
+  margin: -1.5rem max(-1.5rem, -5vw);
+  border-radius: var(--av-radius-lg);
+  background:
+    radial-gradient(120% 80% at 0% 0%, var(--c-ahorro-soft) 0%, transparent 60%),
+    radial-gradient(90% 70% at 100% 100%, var(--c-ingreso-soft) 0%, transparent 65%);
+}
+
+/* ---------- Tema oscuro: textos del jardín con verde fijo ---------- */
+
+:root[data-theme="dark"] .av-app:not(.av-contrast) .ag-eyebrow,
+:root[data-theme="dark"] .av-app:not(.av-contrast) .ag-detail-top .ag-eyebrow {
+  color: var(--av-ink-soft);
+}
+
+:root[data-theme="dark"] .av-app:not(.av-contrast) .ag-stage-name {
+  color: var(--c-ahorro);
+}
+
+/* ---------- Movimiento reducido ---------- */
+
+.av-still .av-toast,
+.av-still .av-gauge-value,
+.av-still .av-goal-ring-value {
+  animation: none;
+  transition: none;
+}
+
+/* Texto 200 %: el monto del medidor va debajo del arco para no pisarlo. */
+.av-large .av-gauge-text {
+  position: static;
+  margin-top: 0.25rem;
+}
+
+/* ===================== Fase 3: voz conversacional ===================== */
+
+/* Entrada «Hablar»: en el header desde tablet; en móvil, botón secundario a la
+   izquierda del FAB. */
+.av-app .av-fab-voice {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .av-header-voice {
+    display: none !important;
+  }
+  .av-app .av-fab-voice {
+    display: grid;
+    place-items: center;
+    position: fixed;
+    z-index: 31;
+    right: calc(max(1rem, env(safe-area-inset-right, 0px)) + 56px + 0.75rem);
+    bottom: calc(var(--av-tabbar-height) + 1rem + 4px + env(safe-area-inset-bottom, 0px));
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    border-radius: var(--av-radius-pill);
+    box-shadow: var(--av-shadow-md);
+  }
+}
+
+/* Panel de voz: bottom sheet en móvil (reglas de .av-dialog) y panel flotante en escritorio. */
+@media (min-width: 768px) {
+  .av-voice-sheet {
+    width: min(420px, calc(100% - 3rem));
+    margin: auto 1.5rem 1.5rem auto;
+    box-shadow: var(--av-shadow-lg);
+  }
+  .av-voice-sheet::backdrop {
+    background: rgb(16 37 25 / 0.25);
+    backdrop-filter: none;
+  }
+}
+
+.av-voice-sheet {
+  text-align: center;
+}
+
+.av-voice-sheet .av-dialog-title {
+  text-align: left;
+}
+
+.av-app .av-voice-transcript {
+  min-height: 2.6em;
+  margin: 0.5rem 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.35em, 1.1em + 1.2vw, 1.75em);
+  line-height: 1.25;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.av-app .av-voice-transcript.is-empty {
+  color: var(--muted);
+}
+
+.av-app .av-voice-prompt {
+  margin: 0.25rem 0 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--av-radius-md);
+  background: var(--c-ahorro-soft);
+  color: var(--ink);
+  font-weight: 550;
+}
+
+.av-voice-actions,
+.av-voice-confirm {
+  justify-content: center;
+  margin: 0.5rem 0;
+}
+
+.av-voice-help {
+  margin-top: 0.75rem;
+  text-align: left;
+}
+
+.av-app .av-voice-help ul {
+  margin: 0.5rem 0;
+}
+
+/* Indicador de escucha */
+.av-listening {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0.25rem;
+}
+
+.av-listening-ring {
+  --av-level: 0;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 6.5rem;
+  height: 6.5rem;
+}
+
+.av-listening-ring::before,
+.av-listening-ring::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--av-radius-pill);
+  background: var(--c-ahorro-soft);
+}
+
+.av-listening-ring::after {
+  inset: 0.75rem;
+  border: 2px solid var(--c-ahorro);
+  background: transparent;
+  opacity: 0.6;
+}
+
+.av-listening-core {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 4rem;
+  height: 4rem;
+  border-radius: var(--av-radius-pill);
+  background: var(--accent);
+  color: var(--av-on-accent);
+}
+
+.av-listening--notHeard .av-listening-core,
+.av-listening--unsupported .av-listening-core,
+.av-listening--idle .av-listening-core,
+.av-listening--answer .av-listening-core {
+  background: var(--card);
+  color: var(--muted);
+  border: 2px solid var(--line);
+}
+
+/* Volumen real: el halo crece con --av-level. */
+.av-listening.is-live .av-listening-ring::before {
+  transform: scale(calc(0.8 + var(--av-level) * 0.55));
+  transition: transform 80ms linear;
+}
+
+.av-listening.is-live .av-listening-ring::after {
+  transform: scale(calc(0.9 + var(--av-level) * 0.35));
+  transition: transform 80ms linear;
+}
+
+/* Sin permiso de micrófono: latido fijo. */
+.av-listening.is-fixed .av-listening-ring::before {
+  animation: av-listen-pulse 1.4s var(--av-ease-in-out) infinite;
+}
+
+/* Procesando: el anillo gira despacio. */
+.av-listening--processing .av-listening-ring::after,
+.av-listening--saving .av-listening-ring::after {
+  border-style: dashed;
+  animation: av-listen-spin 2.4s linear infinite;
+}
+
+/* Movimiento reducido: indicador estático. */
+.av-listening.is-still .av-listening-ring::before {
+  transform: none;
+  animation: none;
+}
+
+@keyframes av-listen-pulse {
+  0%,
+  100% {
+    transform: scale(0.82);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes av-listen-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+.av-app .av-listening-label {
+  margin: 0;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.av-still .av-listening-ring::before,
+.av-still .av-listening-ring::after {
+  animation: none !important;
+  transform: none !important;
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .av-listening-ring::before,
+  .av-listening-ring::after {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+.av-contrast .av-listening-ring::before {
+  background: transparent;
+  border: 2px solid var(--ink);
+}
+
+/* Palabra que se está leyendo en voz alta. */
+.av-spoken-word {
+  background: var(--c-ingreso-soft);
+  color: var(--ink);
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px var(--c-ingreso-soft);
+}
+
+.av-contrast .av-spoken-word {
+  background: var(--accent);
+  color: #000;
+}
+
+/* Preferencias: velocidad de la voz */
+.av-rate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.av-app .av-rate label {
+  margin-bottom: 0;
+}
+
+/* Tablet: solo el punto de conexión (el texto se sigue anunciando) para que el
+   header con «Hablar» quepa en una línea. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .av-connection:not([data-state="offline"]) .av-connection-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* ===================== Fase 4: delicia ===================== */
+
+/* Transición de etapa: fundido cruzado con escala entre el sprite anterior y el nuevo. */
+.ag-plant-growing .ag-stage {
+  transform-origin: 50% 92%;
+}
+
+.ag-stage-out {
+  animation: ag-stage-out var(--av-dur-stage) var(--av-ease-out) forwards;
+}
+
+.ag-stage-in {
+  animation: ag-stage-in var(--av-dur-stage) var(--av-ease-out) both;
+}
+
+@keyframes ag-stage-out {
+  from {
+    opacity: 1;
+    transform: translateY(var(--ag-offset, 0)) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(var(--ag-offset, 0)) scale(1.06);
+  }
+}
+
+@keyframes ag-stage-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--ag-offset, 0)) scale(0.86);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(var(--ag-offset, 0)) scale(1);
+  }
+}
+
+/* Sin animación, el sprite nuevo aparece directamente. */
+.av-still .ag-stage-out {
+  display: none;
+}
+
+/* Celebración al 100 %: lluvia de pétalos sobre la escena. */
+.ag-petals {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ag-petals i {
+  position: absolute;
+  top: -8%;
+  left: var(--x);
+  width: var(--size);
+  height: calc(var(--size) * 1.45);
+  border-radius: 80% 0 80% 0;
+  background: var(--petal);
+  box-shadow: 0 1px 2px rgb(16 37 25 / 0.2);
+  opacity: 0;
+  animation: ag-petal-fall 1.45s var(--delay) cubic-bezier(0.33, 0.1, 0.5, 1) forwards;
+}
+
+@keyframes ag-petal-fall {
+  0% {
+    top: -8%;
+    opacity: 0;
+    transform: translateX(0) rotate(0deg);
+  }
+  12% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+    transform: translateX(var(--drift)) rotate(var(--spin));
+  }
+}
+
+/* Aviso con ventana para deshacer (HU-17): barra que se vacía en 10 s. */
+.av-toast {
+  position: relative;
+  overflow: hidden;
+}
+
+.av-toast-timer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: var(--tone, var(--c-ahorro));
+  transform-origin: left center;
+  animation: av-toast-timer linear forwards;
+}
+
+.av-toast--countdown {
+  --tone: var(--c-ahorro);
+}
+
+.av-toast.is-paused .av-toast-timer {
+  animation-play-state: paused;
+}
+
+@keyframes av-toast-timer {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.av-toast-seconds {
+  min-width: 2.2em;
+  margin-left: 0.15rem;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85em;
+  color: var(--muted);
+}
+
+.av-toast--celebration {
+  border-color: var(--c-ingreso);
+  background:
+    radial-gradient(120% 140% at 0% 0%, var(--c-ingreso-soft) 0%, transparent 55%),
+    var(--card);
+}
+
+.av-still .av-toast-timer {
+  transform: scaleX(1);
+  opacity: 0.45;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .av-toast-timer {
+    animation: none !important;
+    opacity: 0.45;
+  }
+}
+
+/* Micro-interacciones: presión de botones, elevación de macetas y fundido al cambiar de pestaña. */
+.av-app button,
+.av-page button {
+  transition:
+    transform var(--av-dur-instant) var(--av-ease-out),
+    background-color var(--av-dur-fast) var(--av-ease-out),
+    border-color var(--av-dur-fast) var(--av-ease-out),
+    box-shadow var(--av-dur-fast) var(--av-ease-out);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .av-app:not(.av-still) button:not(:disabled):active,
+  .av-page button:not(:disabled):active {
+    transform: scale(0.97);
+  }
+  .av-app:not(.av-still) .ag-pot {
+    transition:
+      transform var(--av-dur-base) var(--av-ease-out),
+      background-color var(--av-dur-fast) var(--av-ease-out),
+      box-shadow var(--av-dur-base) var(--av-ease-out);
+  }
+  .av-app:not(.av-still) .ag-pot:hover,
+  .av-app:not(.av-still) .ag-pot:focus-visible {
+    transform: translateY(-5px);
+  }
+  .av-app:not(.av-still) .ag-pot:not(:disabled):active {
+    transform: translateY(-5px) scale(0.98);
+  }
+}
+
+.av-app .ag-pot:hover .ag-plant-label,
+.av-app .ag-pot:focus-visible .ag-plant-label {
+  box-shadow: var(--av-shadow-md);
+}
+
+.av-tab-panel {
+  animation: av-tab-fade var(--av-dur-fast) var(--av-ease-out);
+}
+
+@keyframes av-tab-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Acceso: brisa muy lenta sobre una capa con el follaje (reutiliza ag-breeze). */
+.av-welcome-art {
+  position: relative;
+  margin-top: 1rem;
+  overflow: hidden;
+  border-radius: 140px 140px 20px 20px;
+  isolation: isolate;
+}
+
+.av-welcome .av-welcome-art img {
+  display: block;
+  margin-top: 0;
+}
+
+.av-welcome .av-welcome-art .av-welcome-breeze {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black 38%, transparent 62%);
+  mask-image: linear-gradient(to bottom, black 0%, black 38%, transparent 62%);
+  transform-origin: 50% 62%;
+  scale: 1.04;
+  animation: ag-breeze 14s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .av-welcome .av-welcome-art .av-welcome-breeze {
+    display: none;
+  }
+}
+
+/* ===================== Fase 5: ajustes de las Web Interface Guidelines ===================== */
+
+/* Retroalimentación al pasar el puntero (más contraste que en reposo). */
+@media (hover: hover) {
+  .av-app button:not(:disabled):hover,
+  .av-page button:not(:disabled):hover {
+    filter: brightness(0.94);
+  }
+  :root[data-theme="dark"] .av-app:not(.av-contrast) button:not(:disabled):hover,
+  :root[data-theme="dark"] .av-page button:not(:disabled):hover {
+    filter: brightness(1.12);
+  }
+  .av-app .av-link:hover,
+  .av-page .av-link:hover {
+    text-decoration-thickness: 2px;
+  }
+}
+
+/* Sin retraso de doble toque en controles; los diálogos no arrastran el scroll de la página. */
+.av-app :is(button, a, input, select, textarea, label, summary),
+.av-page :is(button, a, input, select, textarea, label, summary) {
+  touch-action: manipulation;
+}
+
+.av-dialog {
+  overscroll-behavior: contain;
+}
+
+.av-sheet-grip {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Títulos equilibrados. */
+.av-app :is(h1, h2, h3),
+.av-page :is(h1, h2) {
+  text-wrap: balance;
+}
+
+/* El foco nunca queda tapado por la tab bar, el FAB ni los avisos fijos en móvil. */
+@media (max-width: 767px) {
+  html {
+    scroll-padding-bottom: calc(var(--av-tabbar-height) + 56px + 2.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+#av-main {
+  scroll-margin-top: 1rem;
+}
+
+/* Botón para pausar la brisa del acceso (WCAG 2.2.2: movimiento de más de 5 s). */
+.av-app .av-breeze-toggle,
+.av-page .av-breeze-toggle {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  z-index: 1;
+  background: color-mix(in oklab, var(--card) 88%, transparent);
+}
+
+.av-welcome-art.is-paused .av-welcome-breeze {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .av-breeze-toggle {
+    display: none !important;
+  }
+}

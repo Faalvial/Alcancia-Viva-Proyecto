@@ -1,9 +1,54 @@
 @import "tailwindcss";
+@import "./styles/tokens.css";
 @source not "../public/design";
 @source not "../tests";
 @source not "../docs/jardin-vivo-preview.md";
 @source not "../docs/jardin-assets-prompts.json";
 @source not "../docs/jardin-vivo-integracion.md";
+
+/*
+ * Tokens de src/styles/tokens.css expuestos como utilidades de Tailwind
+ * (bg-av-card, text-gasto, font-display, rounded-av-md, shadow-av-md…).
+ * "inline" hace que cada utilidad use var(--token), así el tema oscuro y el
+ * alto contraste se aplican sin regenerar clases.
+ */
+@theme inline {
+  --color-av-bg: var(--av-bg);
+  --color-av-card: var(--av-card);
+  --color-av-ink: var(--av-ink);
+  --color-av-ink-soft: var(--av-ink-soft);
+  --color-av-line: var(--av-line);
+  --color-av-accent: var(--av-accent);
+  --color-av-on-accent: var(--av-on-accent);
+  --color-gasto: var(--c-gasto);
+  --color-gasto-soft: var(--c-gasto-soft);
+  --color-ingreso: var(--c-ingreso);
+  --color-ingreso-soft: var(--c-ingreso-soft);
+  --color-ahorro: var(--c-ahorro);
+  --color-ahorro-soft: var(--c-ahorro-soft);
+  --color-stage-0: var(--c-stage-0);
+  --color-stage-1: var(--c-stage-1);
+  --color-stage-2: var(--c-stage-2);
+  --color-stage-3: var(--c-stage-3);
+  --color-stage-4: var(--c-stage-4);
+  --color-stage-5: var(--c-stage-5);
+
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+
+  --radius-av-xs: var(--av-radius-xs);
+  --radius-av-sm: var(--av-radius-sm);
+  --radius-av-md: var(--av-radius-md);
+  --radius-av-lg: var(--av-radius-lg);
+  --radius-av-sheet: var(--av-radius-sheet);
+
+  --shadow-av-sm: var(--av-shadow-sm);
+  --shadow-av-md: var(--av-shadow-md);
+  --shadow-av-lg: var(--av-shadow-lg);
+
+  --ease-av-out: var(--av-ease-out);
+  --ease-av-in-out: var(--av-ease-in-out);
+}
 
 @layer base {
   html {
@@ -14,23 +59,28 @@
     margin: 0;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     -webkit-font-smoothing: antialiased;
-    background-color: #f1f5f9;
-    color: #0f172a;
+    background-color: var(--av-bg);
+    color: var(--av-ink);
     overscroll-behavior-y: none;
   }
 
   *:focus-visible {
-    outline: 2px solid #16a34a;
+    outline: 2px solid var(--av-focus);
     outline-offset: 2px;
   }
 }
 
+/*
+ * Áreas seguras (notch, barra de gestos). Requieren viewport-fit=cover.
+ * El componente puede fijar su padding base con --av-safe-pad-top/bottom y la
+ * clase le suma el inset, de modo que en pantallas sin notch no cambia nada.
+ */
 .safe-top {
-  padding-top: env(safe-area-inset-top, 0px);
+  padding-top: calc(var(--av-safe-pad-top, 0px) + env(safe-area-inset-top, 0px));
 }
 
 .safe-bottom {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: calc(var(--av-safe-pad-bottom, 0px) + env(safe-area-inset-bottom, 0px));
 }
 
 .no-scrollbar::-webkit-scrollbar {

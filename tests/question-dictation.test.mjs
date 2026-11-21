@@ -35,3 +35,18 @@ test('un permiso concedido tarde no vuelve a activar un dictado detenido',()=>{
   const {state,controller,recognizers}=setup();controller.start('');const lateStart=recognizers[0].onstart;
   controller.stop();lateStart();assert.equal(state.listening,false);assert.equal(state.aborts,2);
 });
+test('al terminar con voz detectada entrega el texto final para interpretarlo',()=>{
+  const finals=[];const state={text:'',listening:false,status:''};const recognizers=[];
+  const controller=createQuestionDictation(()=>{const r={start(){},abort(){}};recognizers.push(r);return r;},{question:t=>state.text=t,listening:v=>state.listening=v,status:t=>state.status=t,done:t=>finals.push(t)});
+  controller.start('');const r=recognizers[0];result(r,'ahorré cien');result(r,'ahorré cien soles');r.onend();
+  assert.deepEqual(finals,['ahorré cien soles']);
+  controller.start('');recognizers[1].onend();assert.equal(finals.length,1);assert.match(state.status,/No se detectó voz/);
+});
+test('el registro de movimientos usa su propio límite y mensajes sin perder los de error por defecto',()=>{
+  const state={text:'',listening:false,status:''};const recognizers=[];
+  const controller=createQuestionDictation(()=>{const r={start(){},abort(){}};recognizers.push(r);return r;},{question:t=>state.text=t,listening:v=>state.listening=v,status:t=>state.status=t},{maxLength:500,messages:{listening:'Escuchando tu movimiento',errors:{'not-allowed':'Permite el micrófono o escribe tu movimiento.'}}});
+  controller.start('');const r=recognizers[0];r.onstart();assert.equal(state.status,'Escuchando tu movimiento');
+  result(r,'x'.repeat(600));assert.equal(state.text.length,500);
+  r.onerror({error:'not-allowed'});assert.match(state.status,/escribe tu movimiento/);
+  controller.start('');recognizers[1].onerror({error:'audio-capture'});assert.match(state.status,/No encontramos un micrófono/);
+});

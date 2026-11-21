@@ -1,0 +1,203 @@
+{
+  "screen": "voz",
+  "width": 375,
+  "mode": "texto-200",
+  "violations": [],
+  "serious": 0,
+  "incomplete": [
+    {
+      "id": "color-contrast",
+      "impact": "serious",
+      "tags": [
+        "cat.color",
+        "wcag2aa",
+        "wcag143",
+        "TTv5",
+        "TT13.c",
+        "EN-301-549",
+        "EN-9.1.4.3",
+        "ACT"
+      ],
+      "help": "Elements must meet minimum color contrast ratio thresholds",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=playwright",
+      "nodes": [
+        {
+          "target": [
+            "#voice-title"
+          ],
+          "html": "<h2 id=\"voice-title\">Hablar</h2>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it is overlapped by another element",
+          "data": {
+            "contrastRatio": 0,
+            "fontSize": "28.8pt (38.4px)",
+            "fontWeight": "normal",
+            "messageKey": "bgOverlap",
+            "expectedContrastRatio": "3:1"
+          }
+        },
+        {
+          "target": [
+            ".av-listening-label"
+          ],
+          "html": "<p class=\"av-listening-label\" role=\"status\" aria-live=\"polite\">Listo para revisar</p>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it is overlapped by another element",
+          "data": {
+            "contrastRatio": 0,
+            "fontSize": "24.0pt (32px)",
+            "fontWeight": "bold",
+            "messageKey": "bgOverlap",
+            "expectedContrastRatio": "3:1"
+          }
+        },
+        {
+          "target": [
+            ".av-voice-transcript"
+          ],
+          "html": "<p class=\"av-voice-transcript is-empty\">Te escucho…</p>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it is overlapped by another element",
+          "data": {
+            "contrastRatio": 0,
+            "fontSize": "32.4pt (43.2px)",
+            "fontWeight": "normal",
+            "messageKey": "bgOverlap",
+            "expectedContrastRatio": "3:1"
+          }
+        },
+        {
+          "target": [
+            ".av-voice-prompt"
+          ],
+          "html": "<p class=\"av-voice-prompt\" aria-live=\"polite\">¿Guardo un ahorro de 100 soles para Laptop para la universidad?</p>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it is overlapped by another element",
+          "data": {
+            "contrastRatio": 0,
+            "fontSize": "24.0pt (32px)",
+            "fontWeight": "normal",
+            "messageKey": "bgOverlap",
+            "expectedContrastRatio": "3:1"
+          }
+        },
+        {
+          "target": [
+            ".av-voice-confirm > .av-with-icon[type=\"button\"]:nth-child(1)"
+          ],
+          "html": "<button type=\"button\" class=\"av-with-icon\">",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it is overlapped by another element",
+          "data": {
+            "contrastRatio": 0,
+            "fontSize": "24.0pt (32px)",
+            "fontWeight": "normal",
+            "messageKey": "bgOverlap",
+            "expectedContrastRatio": "3:1"
+          }
+        },
+        {
+          "target": [
+            ".av-voice-confirm > .av-with-icon.av-secondary[type=\"button\"]"
+          ],
+          "html": "<button type=\"button\" class=\"av-secondary av-with-icon\">",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it is overlapped by another element",
+          "data": {
+            "contrastRatio": 0,
+            "fontSize": "24.0pt (32px)",
+            "fontWeight": "normal",
+            "messageKey": "bgOverlap",
+            "expectedContrastRatio": "3:1"
+          }
+        },
+        {
+          "target": [
+            ".av-secondary[type=\"button\"]:nth-child(3)"
+          ],
+          "html": "<button type=\"button\" class=\"av-secondary\">Cancelar</button>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it is overlapped by another element",
+          "data": {
+            "contrastRatio": 0,
+            "fontSize": "24.0pt (32px)",
+            "fontWeight": "normal",
+            "messageKey": "bgOverlap",
+            "expectedContrastRatio": "3:1"
+          }
+        },
+        {
+          "target": [
+            ".av-with-icon.av-secondary[type=\"button\"]:nth-child(1)"
+          ],
+          "html": "<button type=\"button\" class=\"av-with-icon av-secondary\" aria-pressed=\"true\">",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it is overlapped by another element",
+          "data": {
+            "contrastRatio": 0,
+            "fontSize": "24.0pt (32px)",
+            "fontWeight": "normal",
+            "messageKey": "bgOverlap",
+            "expectedContrastRatio": "3:1"
+          }
+        },
+        {
+          "target": [
+            ".av-voice-actions > .av-with-icon.av-secondary[type=\"button\"]:nth-child(2)"
+          ],
+          "html": "<button type=\"button\" class=\"av-secondary av-with-icon\">",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it is overlapped by another element",
+          "data": {
+            "contrastRatio": 0,
+            "fontSize": "24.0pt (32px)",
+            "fontWeight": "normal",
+            "messageKey": "bgOverlap",
+            "expectedContrastRatio": "3:1"
+          }
+        },
+        {
+          "target": [
+            "summary"
+          ],
+          "html": "<summary>Qué puedo decir</summary>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it is overlapped by another element",
+          "data": {
+            "contrastRatio": 0,
+            "fontSize": "24.0pt (32px)",
+            "fontWeight": "normal",
+            "messageKey": "bgOverlap",
+            "expectedContrastRatio": "3:1"
+          }
+        }
+      ]
+    }
+  ],
+  "passes": 22,
+  "url": "http://localhost:4173/",
+  "timestamp": "2026-11-21T20:37:00.131Z",
+  "engine": "axe-core 4.10.3",
+  "tags": [
+    "wcag2a",
+    "wcag2aa",
+    "wcag21a",
+    "wcag21aa",
+    "wcag22aa",
+    "best-practice"
+  ],
+  "passesIds": [
+    "aria-allowed-attr",
+    "aria-allowed-role",
+    "aria-conditional-attr",
+    "aria-deprecated-role",
+    "aria-hidden-body",
+    "aria-hidden-focus",
+    "aria-prohibited-attr",
+    "aria-required-attr",
+    "aria-roles",
+    "aria-valid-attr-value",
+    "aria-valid-attr",
+    "button-name",
+    "duplicate-id-aria",
+    "empty-heading",
+    "heading-order",
+    "meta-viewport-large",
+    "meta-viewport",
+    "nested-interactive",
+    "region",
+    "scrollable-region-focusable",
+    "summary-name",
+    "target-size"
+  ]
+}

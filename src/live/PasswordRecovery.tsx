@@ -26,7 +26,7 @@ export function PasswordRecovery({userId,valid,onFinish}:{userId:string|null;val
     catch(e) { setError(e instanceof Error?e.message:recoveryError(e)); }
     finally { submitting.current=false;setBusy(false); }
   }
-  return <main className="av-page av-recovery"><div className="av-brand"><img className="av-brand-icon" src="/brand/piggy-bank.svg" alt=""/>Alcancía Viva</div>
+  return <main className="av-page av-recovery"><div className="av-brand" translate="no"><img className="av-brand-icon" src="/brand/piggy-bank.svg" alt="" aria-hidden="true" width={40} height={40}/>Alcancía Viva</div>
     <section className="av-card" aria-labelledby="auth-title">
       {saved?<><h1 id="auth-title">Contraseña actualizada</h1><p role="status">Tu nueva contraseña se guardó correctamente. Ya puedes volver a tu jardín.</p><button onClick={onFinish}>Volver a mi jardín</button></>:
       retry?<RecoveryEmailForm onBack={onFinish}/>:

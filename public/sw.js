@@ -1,5 +1,5 @@
-const CACHE = 'alcancia-viva-collaborative-v4';
-const SHELL = ['/', '/index.html', '/manifest.json', '/brand/piggy-bank.svg', '/favicon.svg?v=piggy-v1', '/icon-192.png?v=piggy-v1', '/icon-512.png?v=piggy-v1', '/garden/crecimiento.png', '/garden/floreciente.png', '/garden/cosmos-stages.webp', '/garden/courtyard.webp'];
+const CACHE = 'alcancia-viva-collaborative-v6';
+const SHELL = ['/', '/index.html', '/manifest.json', '/brand/piggy-bank.svg', '/favicon.svg?v=piggy-v1', '/icon-192.png?v=piggy-v1', '/icon-512.png?v=piggy-v1', '/garden/floreciente.webp', '/garden/floreciente-720.webp', '/garden/cosmos-stages.webp', '/garden/courtyard.webp', '/fonts/inter-latin-variable.woff2', '/fonts/fraunces-latin-variable.woff2'];
 self.addEventListener('install', event => { event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener('activate', event => {
  event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k=>k.startsWith('alcancia-viva-')&&k!==CACHE).map(k=>caches.delete(k)))));

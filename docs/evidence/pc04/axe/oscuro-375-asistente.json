@@ -1,0 +1,94 @@
+{
+  "screen": "asistente",
+  "width": 375,
+  "mode": "oscuro",
+  "violations": [],
+  "serious": 0,
+  "incomplete": [
+    {
+      "id": "color-contrast",
+      "impact": "serious",
+      "tags": [
+        "cat.color",
+        "wcag2aa",
+        "wcag143",
+        "TTv5",
+        "TT13.c",
+        "EN-301-549",
+        "EN-9.1.4.3",
+        "ACT"
+      ],
+      "help": "Elements must meet minimum color contrast ratio thresholds",
+      "helpUrl": "https://dequeuniversity.com/rules/axe/4.10/color-contrast?application=playwright",
+      "nodes": [
+        {
+          "target": [
+            "#av-assistant-question"
+          ],
+          "html": "<textarea id=\"av-assistant-question\" required=\"\" maxlength=\"1500\" aria-describedby=\"av-assistant-voice-help\"></textarea>",
+          "failureSummary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element",
+          "data": {
+            "contrastRatio": 0,
+            "fontSize": "12.0pt (16px)",
+            "fontWeight": "normal",
+            "messageKey": "elmPartiallyObscured",
+            "expectedContrastRatio": "4.5:1"
+          }
+        }
+      ]
+    }
+  ],
+  "passes": 39,
+  "url": "http://localhost:4173/?tab=asistente",
+  "timestamp": "2026-11-21T20:37:30.072Z",
+  "engine": "axe-core 4.10.3",
+  "tags": [
+    "wcag2a",
+    "wcag2aa",
+    "wcag21a",
+    "wcag21aa",
+    "wcag22aa",
+    "best-practice"
+  ],
+  "passesIds": [
+    "aria-allowed-attr",
+    "aria-allowed-role",
+    "aria-conditional-attr",
+    "aria-deprecated-role",
+    "aria-hidden-body",
+    "aria-hidden-focus",
+    "aria-prohibited-attr",
+    "aria-required-attr",
+    "aria-roles",
+    "aria-valid-attr-value",
+    "aria-valid-attr",
+    "button-name",
+    "bypass",
+    "color-contrast",
+    "document-title",
+    "duplicate-id-aria",
+    "empty-heading",
+    "form-field-multiple-labels",
+    "heading-order",
+    "html-has-lang",
+    "html-lang-valid",
+    "label-title-only",
+    "label",
+    "landmark-banner-is-top-level",
+    "landmark-main-is-top-level",
+    "landmark-no-duplicate-banner",
+    "landmark-no-duplicate-main",
+    "landmark-one-main",
+    "landmark-unique",
+    "link-name",
+    "meta-viewport-large",
+    "meta-viewport",
+    "nested-interactive",
+    "page-has-heading-one",
+    "region",
+    "select-name",
+    "skip-link",
+    "tabindex",
+    "target-size"
+  ]
+}
