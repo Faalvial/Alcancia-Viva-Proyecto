@@ -43,14 +43,14 @@ test('la lectura informa la palabra actual y avisa si falla, sin eventos tardío
   player.speak('Tercera',1,'es-PE',undefined,{onError:()=>failed++});utterances[2].onerror();assert.equal(failed,1);
 });
 
-import { pickRecordingType, transcribe, transcriptionEnabled } from '../src/services/voice/recorder.ts';
+import { pickRecordingType, transcribe, transcriptionEnabled, isIOS, createSilenceDetector, SILENCE_MS, NO_SPEECH_MS } from '../src/services/voice/recorder.ts';
 
-test('el respaldo graba en webm/opus, o en mp4 en Safari, y está desactivado por defecto',()=>{
+test('la grabación usa webm/opus, o mp4 en Safari, y está activada por defecto (el servidor ya transcribe)',()=>{
   assert.equal(pickRecordingType(type=>type.startsWith('audio/webm')),'audio/webm;codecs=opus');
   assert.equal(pickRecordingType(type=>type==='audio/mp4'),'audio/mp4');
   assert.equal(pickRecordingType(()=>false),null);
   assert.equal(pickRecordingType(()=>{throw new Error('sin soporte');}),null);
-  assert.equal(transcriptionEnabled(),false);
+  assert.equal(transcriptionEnabled(),true);
 });
 
 test('la transcripción envía el audio en base64 con action «transcribe» y conserva el error amable',async()=>{
@@ -60,4 +60,27 @@ test('la transcripción envía el audio en base64 con action «transcribe» y co
   assert.deepEqual(sent,{name:'financial-assistant',action:'transcribe',audio:'AQID',mimeType:'audio/webm',language:'es'});
   await assert.rejects(transcribe(new Blob([new Uint8Array([1])]),async()=>({data:{error:'Revisa tu consulta.'},error:null})),/Puedes escribir tu movimiento/);
   await assert.rejects(transcribe(new Blob([]),async()=>({data:{text:'x'},error:null})),/No se grabó audio/);
+});
+
+test('detecta iPhone, iPad (también iPadOS como «Mac» táctil) y no confunde un Mac',()=>{
+  assert.equal(isIOS('Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X)','iPhone',5),true);
+  assert.equal(isIOS('Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) CriOS/131','iPhone',5),true);
+  assert.equal(isIOS('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)','MacIntel',5),true);
+  assert.equal(isIOS('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)','MacIntel',0),false);
+  assert.equal(isIOS('Mozilla/5.0 (X11; Linux x86_64) Firefox/133.0','Linux x86_64',0),false);
+});
+
+test('la grabación termina tras una pausa al dejar de hablar, o si no se oye nada',()=>{
+  const d=createSilenceDetector();
+  assert.equal(d.push(0.01,0),'wait');
+  assert.equal(d.push(0.2,300),'speech');
+  assert.equal(d.push(0.01,500),'wait');
+  assert.equal(d.push(0.3,900),'speech','volver a hablar reinicia la pausa');
+  assert.equal(d.push(0.01,1000),'wait');
+  assert.equal(d.push(0.01,1000+SILENCE_MS-1),'wait');
+  assert.equal(d.push(0.01,1000+SILENCE_MS),'end');
+  const quiet=createSilenceDetector();
+  assert.equal(quiet.push(0,0),'wait');
+  assert.equal(quiet.push(0,NO_SPEECH_MS-1),'wait');
+  assert.equal(quiet.push(0,NO_SPEECH_MS),'end');assert.equal(quiet.heard,false);
 });

@@ -129,8 +129,8 @@ const check = async (name, fn) => { await fn(); console.log('✓', name); };
     await page.close();
   });
 
-  await check('sin SpeechRecognition (Firefox, algunos iOS): el panel lo explica y ofrece escribir', async () => {
-    const { page } = await open({ width: 375, voice: { noRecognition: true } });
+  await check('sin reconocimiento ni grabación: el panel lo explica y ofrece escribir', async () => {
+    const { page } = await open({ width: 375, voice: { noRecognition: true, noRecorder: true } });
     await page.getByRole('button', { name: 'Hablar' }).filter({ visible: true }).click();
     await page.getByText('Este navegador no admite voz; escribe tu movimiento.').waitFor();
     await shot(page, 'voz-sin-soporte-375.png');
