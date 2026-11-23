@@ -13,6 +13,10 @@
       // Aplica el tema guardado antes del primer pintado (evita el destello claro en modo oscuro).
       try { var t = localStorage.getItem('av-theme') || 'system'; var d = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches); document.documentElement.dataset.theme = d ? 'dark' : 'light'; if (d) document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d1a13'); } catch (e) {}
     </script>
+    <script>
+      // Sin sesión se verá el acceso: adelanta su imagen principal (LCP). Con sesión no se descarga.
+      try { var signed = Object.keys(localStorage).some(function (k) { return /^sb-.*-auth-token$/.test(k); }); if (!signed) { var l = document.createElement('link'); l.rel = 'preload'; l.as = 'image'; l.href = '/garden/floreciente-720.webp'; l.setAttribute('imagesrcset', '/garden/floreciente-720.webp 720w, /garden/floreciente.webp 1280w'); l.setAttribute('imagesizes', '(max-width: 767px) 92vw, 46vw'); l.setAttribute('fetchpriority', 'high'); document.head.appendChild(l); } } catch (e) {}
+    </script>
     <title>Alcancía Viva - Educación Financiera</title>
   </head>
   <body>

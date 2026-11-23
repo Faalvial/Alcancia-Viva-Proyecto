@@ -32,6 +32,7 @@ const check = async (name, fn) => { await fn(); console.log('✓', name); };
   await check('registro completo por voz: interpreta, confirma en voz y guarda con «sí»', async () => {
     const { page, saved } = await open();
     await page.getByRole('button', { name: 'Hablar' }).click();
+    await sheet(page).waitFor(); // el panel se carga de forma diferida
     await sheet(page).waitFor();
     await page.getByRole('status').filter({ hasText: 'Escuchando' }).waitFor();
     await shot(page, 'voz-escuchando-1280.png');
@@ -52,6 +53,7 @@ const check = async (name, fn) => { await fn(); console.log('✓', name); };
   await check('slot-filling: pregunta «¿Cuánto?» y «¿Para qué meta?», repregunta y «no» abre el formulario precargado', async () => {
     const { page, saved } = await open();
     await page.getByRole('button', { name: 'Hablar' }).click();
+    await sheet(page).waitFor(); // el panel se carga de forma diferida
     await say(page, 'ahorré para algo');
     await page.getByText(/^(¿Cuánto fue\?|¿De cuánto fue\?)$/).first().waitFor();
     await say(page, 'cincuenta');
@@ -72,6 +74,7 @@ const check = async (name, fn) => { await fn(); console.log('✓', name); };
   await check('tras 2 repreguntas sin entender, abre el formulario (ayuda proactiva)', async () => {
     const { page } = await open();
     await page.getByRole('button', { name: 'Hablar' }).click();
+    await sheet(page).waitFor(); // el panel se carga de forma diferida
     await say(page, 'gasté en algo');
     await page.getByText(/^(¿Cuánto fue\?|¿De cuánto fue\?)$/).first().waitFor();
     for (const answer of ['no sé', 'mmm', 'ni idea']) await say(page, answer);
@@ -84,6 +87,7 @@ const check = async (name, fn) => { await fn(); console.log('✓', name); };
   await check('navegación por voz: «ir a metas» cambia de pestaña y lo confirma en voz', async () => {
     const { page } = await open();
     await page.getByRole('button', { name: 'Hablar' }).click();
+    await sheet(page).waitFor(); // el panel se carga de forma diferida
     await say(page, 'ir a metas');
     await sheet(page).waitFor({ state: 'detached' });
     assert.equal(await page.getByRole('button', { name: 'Metas', exact: true }).getAttribute('aria-current'), 'page');
@@ -96,6 +100,7 @@ const check = async (name, fn) => { await fn(); console.log('✓', name); };
     let assistantCalls = 0;
     page.on('request', (r) => { if (r.url().includes('/functions/v1/')) assistantCalls++; });
     await page.getByRole('button', { name: 'Hablar' }).click();
+    await sheet(page).waitFor(); // el panel se carga de forma diferida
     await say(page, '¿cuánto llevo para la laptop?');
     await page.getByText(/llevas 1450 soles de 2500 soles, el 58 por ciento/).waitFor();
     await shot(page, 'voz-consulta-1280.png');
@@ -106,6 +111,7 @@ const check = async (name, fn) => { await fn(); console.log('✓', name); };
   await check('«pregunta: …» envía la pregunta al asistente y muestra la respuesta con resaltado', async () => {
     const { page } = await open({ backend: { assistantAnswer: 'Separa una parte fija cada semana y revisa tus gastos pequeños.' } });
     await page.getByRole('button', { name: 'Hablar' }).click();
+    await sheet(page).waitFor(); // el panel se carga de forma diferida
     await say(page, 'pregunta: cómo puedo ahorrar más');
     await sheet(page).waitFor({ state: 'detached' });
     await page.getByText('Separa una parte fija cada semana').waitFor();
@@ -119,6 +125,7 @@ const check = async (name, fn) => { await fn(); console.log('✓', name); };
   await check('micrófono denegado: «No te escuché» con el motivo, y la vía escrita sigue disponible', async () => {
     const { page } = await open({ voice: { micDenied: true } });
     await page.getByRole('button', { name: 'Hablar' }).click();
+    await sheet(page).waitFor(); // el panel se carga de forma diferida
     await say(page, '__denied');
     await page.getByRole('status').filter({ hasText: 'No te escuché' }).waitFor();
     await page.getByText(/El micrófono no tiene permiso/).waitFor();
@@ -186,6 +193,7 @@ const check = async (name, fn) => { await fn(); console.log('✓', name); };
   await check('movimiento reducido: indicador estático y sin resaltado de palabras', async () => {
     const { page } = await open({ reducedMotion: 'reduce', backend: { preferences: { reducedMotion: true }, assistantAnswer: 'Respuesta breve de prueba.' } });
     await page.getByRole('button', { name: 'Hablar' }).click();
+    await sheet(page).waitFor(); // el panel se carga de forma diferida
     await page.getByRole('status').filter({ hasText: 'Escuchando' }).waitFor();
     assert.match(await page.locator('.av-listening').getAttribute('class'), /is-still/);
     await page.keyboard.press('Escape');

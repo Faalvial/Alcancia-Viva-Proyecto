@@ -11,7 +11,7 @@
     "test:history": "node --experimental-strip-types --test tests/movement-history.test.mjs tests/movement-timeline.test.mjs tests/companion.test.mjs tests/demo.test.mjs",
     "test:garden": "node --experimental-strip-types --test tests/garden-live.test.mjs tests/garden-preview.test.mjs",
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node scripts/prerender-auth.mjs",
     "preview": "vite preview",
     "android:sync": "npm run build && npx cap sync android",
     "android:open": "npx cap open android"

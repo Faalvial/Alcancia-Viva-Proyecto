@@ -1884,3 +1884,14 @@
   min-height: 44px;
   padding: 0 0.4rem;
 }
+
+/* Copia de los fotogramas de la brisa (garden.css) para el acceso, que ya no carga el jardín. */
+@keyframes ag-breeze {
+  0%,
+  100% {
+    transform: rotate(-0.7deg);
+  }
+  50% {
+    transform: rotate(1.1deg);
+  }
+}
