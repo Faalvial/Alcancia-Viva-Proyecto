@@ -161,7 +161,8 @@ const check = async (name, fn) => { await fn(); console.log('✓', name); };
     await entry.focus();
     await page.keyboard.press('Enter');
     await sheet(page).waitFor();
-    assert.equal(await page.evaluate(() => document.activeElement?.textContent), 'Detener');
+    // El panel aparece y, en el mismo instante, empieza a escuchar: se espera ese estado.
+    await page.waitForFunction(() => document.activeElement?.textContent === 'Detener');
     await say(page, 'gasté 8 soles en pasaje');
     await page.getByRole('group', { name: 'Confirmar el registro' }).waitFor();
     // Recorre los controles con Tab hasta «Sí, guardar» y confirma con Enter.

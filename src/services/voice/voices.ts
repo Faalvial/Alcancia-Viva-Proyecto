@@ -3,12 +3,17 @@ export interface VoiceLike { lang:string; name:string; localService?:boolean; }
 export const VOICE_PREFERENCE=['es-pe','es-mx','es-es'];
 const langOf=(voice:VoiceLike)=>voice.lang.replace('_','-').toLowerCase();
 
+/** Voces neuronales o «naturales» (Edge, Chrome, Apple «mejorada/premium») suenan mucho más humanas. */
+const NATURAL=/natural|neural|online|premium|enhanced|mejorad|google/i;
+const quality=(voice:VoiceLike)=>(NATURAL.test(voice.name)?2:0)+(voice.localService?1:0);
+const best=<T extends VoiceLike>(list:T[])=>list.reduce<T|null>((top,voice)=>!top||quality(voice)>quality(top)?voice:top,null);
+
 export function pickSpanishVoice<T extends VoiceLike>(voices:readonly T[]):T|null {
   for(const lang of VOICE_PREFERENCE){
     const matches=voices.filter(voice=>langOf(voice)===lang);
-    if(matches.length)return matches.find(voice=>voice.localService)||matches[0];
+    if(matches.length)return best(matches);
   }
-  return voices.find(voice=>langOf(voice).startsWith('es'))||null;
+  return best(voices.filter(voice=>langOf(voice).startsWith('es')));
 }
 
 /** Velocidad de lectura permitida en Preferencias. */

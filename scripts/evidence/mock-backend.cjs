@@ -8,8 +8,8 @@
 // Uso: const { mockBackend } = require('./mock-backend.cjs');
 //      await mockBackend(page, { preferences: { largeText: true } });
 
-const SUPABASE = 'https://ahnfwlmymthfgxpyoasz.supabase.co';
-const STORAGE_KEY = 'sb-ahnfwlmymthfgxpyoasz-auth-token';
+const SUPABASE = 'https://haqdsmtildbcubvtitfk.supabase.co';
+const STORAGE_KEY = 'sb-haqdsmtildbcubvtitfk-auth-token';
 const USER_ID = '00000000-0000-4000-8000-000000000001';
 const GROUP_ID = '00000000-0000-4000-8000-0000000000a1';
 

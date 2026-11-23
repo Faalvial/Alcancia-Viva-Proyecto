@@ -8,7 +8,7 @@
     "test:recovery": "node --experimental-strip-types --test tests/password-recovery.test.mjs",
     "test:playback": "node --experimental-strip-types --test tests/speech-playback.test.mjs tests/voice-synthesis.test.mjs",
     "test:voice": "node --experimental-strip-types --test tests/question-dictation.test.mjs tests/voice-intents.test.mjs",
-    "test:history": "node --experimental-strip-types --test tests/movement-history.test.mjs tests/movement-timeline.test.mjs tests/companion.test.mjs",
+    "test:history": "node --experimental-strip-types --test tests/movement-history.test.mjs tests/movement-timeline.test.mjs tests/companion.test.mjs tests/demo.test.mjs",
     "test:garden": "node --experimental-strip-types --test tests/garden-live.test.mjs tests/garden-preview.test.mjs",
     "dev": "vite",
     "build": "tsc -b && vite build",

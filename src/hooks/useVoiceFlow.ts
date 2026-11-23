@@ -229,7 +229,7 @@ export function useVoiceFlow(options:VoiceFlowOptions) {
   function start(){
     if(!dictation.supported&&!recordable){go('unsupported');setPrompt('Este navegador no admite voz; escribe tu movimiento.');return;}
     SpeechService.stopSpeaking();
-    awaiting.current={kind:'command'};asks.current={};draftRef.current=null;setPrompt('');
+    awaiting.current={kind:'command'};asks.current={};draftRef.current=null;setPrompt(say_('welcome'));
     listen();
   }
 

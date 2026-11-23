@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { database, requireDatabase, rpc, loadSnapshot, emptySnapshot, passwordRecovery } from './client';
+import { database, requireDatabase, rpc, loadSnapshot, emptySnapshot, passwordRecovery, isDemo } from './client';
+import { enterDemo, exitDemo } from './demo';
 import { PasswordRecovery, RecoveryEmailForm } from './PasswordRecovery';
 import { cleanRecoveryUrl } from './recoveryFlow';
 import type { Snapshot, Profile, Preferences, Movement, Member, Request, Goal } from './client';
@@ -133,7 +134,9 @@ function Auth() {
         </form>
         {error&&<p role="alert" className="av-error">{error}</p>}{message&&<p role="status">{message}</p>}
         {!signup&&<button className="av-link" disabled={busy} onClick={()=>{setRecovering(true);setPassword('');setError('');setMessage('');}}>¿Olvidaste tu contraseña?</button>}
-        <button className="av-link" disabled={busy} onClick={()=>{setSignup(!signup);setError('');setMessage('');}}>{signup?'Ya tengo cuenta':'Quiero crear una cuenta'}</button></>}
+        <button className="av-link" disabled={busy} onClick={()=>{setSignup(!signup);setError('');setMessage('');}}>{signup?'Ya tengo cuenta':'Quiero crear una cuenta'}</button>
+        <div className="av-demo-entry"><p>¿Solo quieres mirar? Prueba la app con datos de práctica, sin crear cuenta. Nada se guarda fuera de este navegador.</p>
+          <button type="button" className="av-secondary" disabled={busy} onClick={()=>{enterDemo();location.reload();}}>Probar sin cuenta</button></div></>}
       </section>
     </section>
   </main>;
@@ -182,7 +185,8 @@ function Workspace({session}:{session:Session}) {
   function goTo(id:TabId){setTab(id);window.scrollTo({top:0});}
   // La pestaña se refleja en la URL (?tab=metas) para poder enlazarla y recargar sin perderla.
   useEffect(()=>{const next=urlWithTab(location.href,tab);if(next!==location.href)history.replaceState(history.state,'',next);},[tab]);
-  const signOut=()=>requireDatabase().auth.signOut();
+  // En modo demo, salir borra los datos de práctica y vuelve al acceso.
+  const signOut=()=>isDemo?(exitDemo(),location.replace(location.pathname)):requireDatabase().auth.signOut();
   useKeyShortcut('n',()=>openComposer(),Boolean(profile)&&!composer&&!voiceOpen);
   useEffect(()=>{const timer=window.setInterval(()=>setToday(localDate()),60000);return()=>window.clearInterval(timer);},[]);
   useEffect(()=>{if(!watering)return;const timer=window.setTimeout(()=>setWatering(null),1600);return()=>window.clearTimeout(timer);},[watering]);
@@ -307,9 +311,10 @@ function Workspace({session}:{session:Session}) {
     });
   }
   if(!profileReady)return <LoadingScreen label="Despertando a tu alcancía…"/>;
-  if(!profile)return <Onboarding initialName={onboardingName} busy={busy} error={error} onFinish={finishOnboarding} onSignOut={()=>requireDatabase().auth.signOut()}/>;
+  if(!profile)return <Onboarding initialName={onboardingName} busy={busy} error={error} onFinish={finishOnboarding} onSignOut={signOut}/>;
   return <div className={`av-app ${prefs.highContrast?'av-contrast':''} ${prefs.largeText?'av-large':''} ${prefs.reducedMotion?'av-still':''}`}>
     <a className="av-skip" href="#av-main">Saltar al contenido</a>
+    {isDemo&&<p className="av-demo-banner" role="note">Estás en el <strong>modo demo</strong>: los datos son de práctica y se borran al salir. <button type="button" className="av-link" onClick={signOut}>Salir del modo demo</button></p>}
     <header className="av-header safe-top"><a className="av-brand" href="#av-main" translate="no"><BrandIcon/> Alcancía Viva</a>
       <div className="av-header-actions">
         <p className="av-connection" role="status" data-state={!online?'offline':connected?'online':'connecting'}><span className="av-connection-dot" aria-hidden="true"/><span className="av-connection-text">{!online?'Sin conexión':connected?'Conectado en tiempo real':'Conectando actualizaciones…'}</span></p>

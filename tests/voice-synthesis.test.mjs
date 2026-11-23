@@ -14,6 +14,9 @@ test('la voz se elige en el orden es-PE, es-MX, es-ES y luego cualquier español
   assert.equal(pickSpanishVoice([v('es-US','Pedro'),v('en-GB','X')]).name,'Pedro');
   assert.equal(pickSpanishVoice([v('en-US','Ana')]),null);
   assert.equal(pickSpanishVoice([v('es-MX','Red'),v('es-MX','Local',true)]).name,'Local');
+  // Dentro del mismo idioma, una voz natural (neuronal) gana a una básica aunque sea remota.
+  assert.equal(pickSpanishVoice([v('es-MX','Sabina',true),v('es-MX','Microsoft Dalia Online (Natural) - Spanish (Mexico)')]).name,'Microsoft Dalia Online (Natural) - Spanish (Mexico)');
+  assert.equal(pickSpanishVoice([v('es-ES','Google español'),v('es-ES','Mónica',true)]).name,'Google español');
 });
 
 test('la velocidad configurable queda entre 0.8 y 1.3',()=>{

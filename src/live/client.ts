@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { createRecoveryTracker } from './recoveryFlow';
+import { DEMO_KEY, DEMO_URL, createDemoFetch, demoActive } from './demo';
 
 let recoveryStorage: Storage | undefined;
 try { recoveryStorage = window.sessionStorage; } catch { /* Auth funciona sin este marcador opcional. */ }
@@ -7,9 +8,11 @@ try { recoveryStorage = window.sessionStorage; } catch { /* Auth funciona sin es
 export const passwordRecovery = createRecoveryTracker(window.location.href, recoveryStorage);
 
 // Configuración pública; RLS y la sesión del usuario protegen los datos.
-const url = import.meta.env.VITE_SUPABASE_URL || 'https://ahnfwlmymthfgxpyoasz.supabase.co';
-const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_94DMzectGQjIV8bIE7-fEQ_EhUY0xko';
-export const database = url && key ? createClient(url, key) : null;
+// En modo demo el cliente habla con un Supabase simulado en el navegador (./demo.ts).
+export const isDemo = demoActive();
+const url = isDemo ? DEMO_URL : import.meta.env.VITE_SUPABASE_URL || 'https://haqdsmtildbcubvtitfk.supabase.co';
+const key = isDemo ? DEMO_KEY : import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_I0OTyseMwL1PdSvN7xq7mw_tGCKJNvY';
+export const database = url && key ? createClient(url, key, isDemo ? { global: { fetch: createDemoFetch() } } : undefined) : null;
 database?.auth.onAuthStateChange((event, session) => passwordRecovery.observe(event, session?.user.id || null));
 export const requireDatabase = () => {
   if (!database) throw new Error('Falta configurar la conexión con Supabase.');
