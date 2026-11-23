@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { CheckCircle2, Flower2, Info, Undo2, X } from 'lucide-react';
+import { CheckCircle2, Info, Undo2, X } from 'lucide-react';
+import { Mascot } from './Mascot';
 import type { Movement } from '../live/client';
 import { MovementTypeIcon } from './MovementTypeIcon';
 
@@ -39,7 +40,7 @@ export function Toast({toast,onDismiss,duration:defaultDuration=6000}:{toast:Toa
     const timer=window.setTimeout(()=>dismiss.current(),Math.max(0,remaining.current));
     return()=>{window.clearTimeout(timer);remaining.current-=Date.now()-started.current;};
   },[toast?.id,paused]);
-  const icon=toast?.tone==='celebration'?<span className="av-type-icon av-tone-ingreso" aria-hidden="true"><Flower2 size={20}/></span>:
+  const icon=toast?.tone==='celebration'?<span className="av-toast-mascot" aria-hidden="true"><Mascot mood="celebrating" growth={5} size={52}/></span>:
     toast?.type?<MovementTypeIcon type={toast.type} size={20}/>:
     <span className={`av-type-icon av-tone-${toast?.tone==='info'?'ingreso':'ahorro'}`} aria-hidden="true">{toast?.tone==='info'?<Info size={20}/>:<CheckCircle2 size={20}/>}</span>;
   return <div className="av-toast-region" role="status" aria-live="polite" aria-atomic="true">

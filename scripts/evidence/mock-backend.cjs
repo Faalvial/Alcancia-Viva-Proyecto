@@ -79,7 +79,8 @@ function sampleData(preferences) {
 // grupos, metas ni movimientos) y profileDelay (ms de espera del perfil, para ver la carga).
 // assistantAnswer: texto que devuelve el asistente simulado (si no, responde que no está disponible).
 // transcribeText: texto de la acción «transcribe» (respaldo de voz con grabación).
-async function mockBackend(page, { preferences = {}, signedIn = true, empty = false, profileDelay = 0, assistantAnswer = '', transcribeText = '' } = {}) {
+// noProfile: la cuenta aún no tiene perfil (bienvenida guiada).
+async function mockBackend(page, { preferences = {}, signedIn = true, empty = false, profileDelay = 0, assistantAnswer = '', transcribeText = '', noProfile = false } = {}) {
   const data = sampleData(preferences);
   if (empty) {
     for (const key of Object.keys(data.tables)) data.tables[key] = [];
@@ -132,6 +133,8 @@ async function mockBackend(page, { preferences = {}, signedIn = true, empty = fa
       if (table === 'profiles') {
         if (profileDelay) await new Promise((resolve) => setTimeout(resolve, profileDelay));
         const accept = request.headers()['accept'] || '';
+        // noProfile: cuenta nueva sin perfil (muestra la bienvenida guiada).
+        if (noProfile) return json(accept.includes('vnd.pgrst.object') ? null : []);
         return json(accept.includes('vnd.pgrst.object') ? data.profile : [data.profile]);
       }
       return json(data.tables[table] || []);

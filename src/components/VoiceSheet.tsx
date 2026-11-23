@@ -10,7 +10,7 @@ import { useSheetDrag } from '../hooks/useSheetDrag';
  * flotante en escritorio. Escucha nada más abrirse. Todo se puede hacer también
  * con teclado (botones Sí / No / Cancelar) o por escrito («Prefiero escribir»).
  */
-export function VoiceSheet({reduced,...options}:VoiceFlowOptions&{reduced:boolean}) {
+export function VoiceSheet({reduced,petName='',growth=2,...options}:VoiceFlowOptions&{reduced:boolean;petName?:string;growth?:number}) {
   const dialog=useRef<HTMLDialogElement>(null),primary=useRef<HTMLButtonElement>(null);
   const previousFocus=useRef(document.activeElement as HTMLElement|null);
   const flow=useVoiceFlow(options);
@@ -26,13 +26,13 @@ export function VoiceSheet({reduced,...options}:VoiceFlowOptions&{reduced:boolea
   return <dialog ref={dialog} className="av-dialog av-voice-sheet" aria-labelledby="voice-title" aria-describedby="voice-help"
     onCancel={event=>{event.preventDefault();flow.close();}}>
     <div className="av-sheet-grip" {...drag}><span className="av-sheet-handle" aria-hidden="true"/>
-      <div className="av-dialog-title"><h2 id="voice-title">Hablar</h2>
+      <div className="av-dialog-title"><h2 id="voice-title">{petName?`Habla con ${petName}`:'Hablar'}</h2>
         <button type="button" className="av-secondary av-icon-button" onClick={flow.close} aria-label="Cerrar conversación por voz"><X size={24} aria-hidden="true"/></button></div></div>
     {flow.stage==='unsupported'?<>
       <p className="av-voice-prompt" role="status">Este navegador no admite voz; escribe tu movimiento.</p>
       <div className="av-actions"><button ref={primary} type="button" className="av-with-icon" onClick={flow.preferWriting}><Keyboard size={24} aria-hidden="true"/>Escribir mi movimiento</button></div>
     </>:<>
-      <ListeningIndicator stage={flow.stage} reduced={reduced}/>
+      <ListeningIndicator stage={flow.stage} reduced={reduced} petName={petName} growth={growth}/>
       <p className={`av-voice-transcript ${flow.transcript?'':'is-empty'}`}>{flow.transcript||(listening?'Te escucho…':'')}</p>
       {flow.recording&&<p className="av-voice-prompt" aria-live="polite">Grabando. Pulsa «Detener» cuando termines.</p>}
       {flow.prompt&&<p className="av-voice-prompt" aria-live="polite">{flow.prompt}</p>}

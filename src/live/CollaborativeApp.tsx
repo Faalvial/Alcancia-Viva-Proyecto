@@ -34,14 +34,19 @@ import { MOVEMENT_META, MovementTypeIcon } from '../components/MovementTypeIcon'
 import { useTheme } from '../hooks/useTheme';
 import { useCountUp } from '../hooks/useCountUp';
 import { UNDO_WINDOW_MS } from '../components/Toast';
+import { Mascot } from '../components/Mascot';
+import { CompanionGreeting } from '../components/CompanionGreeting';
+import { Onboarding } from '../components/Onboarding';
+import type { OnboardingResult } from '../components/Onboarding';
+import { assistantIntro, capitalized, firstName, greetingFor, limaHour, petNameOf, weekMessage, weekStory } from './companion';
 import type { ThemePreference } from '../hooks/useTheme';
 import type { DictationMessages } from '../services/voice/questionDictation';
 import './live.css';
 import '../components/components.css';
 
 // El tema solo existe en el cliente: preferences es JSON en Supabase y no requiere migración.
-type AppPreferences = Preferences & { theme: ThemePreference; speechRate: number };
-const defaults: AppPreferences = { weeklyBudget:300,highContrast:false,largeText:false,reducedMotion:false,simple:false,audio:false,theme:'system',speechRate:1 };
+type AppPreferences = Preferences & { theme: ThemePreference; speechRate: number; petName: string };
+const defaults: AppPreferences = { weeklyBudget:300,highContrast:false,largeText:false,reducedMotion:false,simple:false,audio:false,theme:'system',speechRate:1,petName:'' };
 const themeOptions = [['system','Según el sistema',Monitor],['light','Claro',Sun],['dark','Oscuro',Moon]] as const;
 const statusNames: Record<string,string> = {pending:'Pendiente de aprobación',approved:'Aprobada',rejected:'Rechazada'};
 const movementNames = {expense:'Gasto',income:'Ingreso',savings:'Ahorro'};
@@ -97,7 +102,7 @@ function Auth() {
       const db=requireDatabase();
       if(signup) {
         if(!consent)throw new Error('Acepta el tratamiento de tus datos para crear tu cuenta.');
-        const {data,error}=await db.auth.signUp({email,password,options:{data:{display_name:name.trim(),consent_at:new Date().toISOString()}}});
+        const {data,error}=await db.auth.signUp({email,password,options:{emailRedirectTo:`${location.origin}/`,data:{display_name:name.trim(),consent_at:new Date().toISOString()}}});
         if(error)throw error;
         if(!data.session)setMessage('Revisa tu correo para confirmar la cuenta. Después vuelve aquí e inicia sesión.');
       } else {
@@ -116,7 +121,7 @@ function Auth() {
           <img className="av-welcome-breeze" src="/garden/floreciente.webp" srcSet="/garden/floreciente-720.webp 720w, /garden/floreciente.webp 1280w" sizes="(max-width: 767px) 92vw, 46vw" alt="" aria-hidden="true" width={1280} height={720}/>
           <button type="button" className="av-secondary av-icon-button av-breeze-toggle" aria-pressed={breezePaused} aria-label={breezePaused?'Reanudar la brisa del jardín':'Pausar la brisa del jardín'} onClick={()=>setBreezePaused(!breezePaused)}>{breezePaused?<Play size={20} aria-hidden="true"/>:<Pause size={20} aria-hidden="true"/>}</button></div>
       </div>
-      <section className="av-card" aria-labelledby="auth-title">{recovering?<RecoveryEmailForm initialEmail={email} onBack={()=>setRecovering(false)}/>:<><h2 id="auth-title">{signup?'Crea tu espacio':'Bienvenido a tu jardín'}</h2>
+      <section className="av-card" aria-labelledby="auth-title">{recovering?<RecoveryEmailForm initialEmail={email} onBack={()=>setRecovering(false)}/>:<><div className="av-auth-hello"><Mascot mood="happy" growth={2} size={72}/><h2 id="auth-title">{signup?'Crea tu espacio':'Qué bueno verte por el jardín'}</h2></div>
         <p>Organiza tus gastos, alcanza tus metas y haz crecer tu ahorro.</p>
         <form onSubmit={submit}>
           {signup&&<label>Tu nombre<input autoComplete="name" required maxLength={100} value={name} onChange={e=>setName(e.target.value)}/></label>}
@@ -170,6 +175,8 @@ function Workspace({session}:{session:Session}) {
   function openComposer(goal?:Goal,draft:VoiceDraft|null=null){setComposerGoalId(goal?.id||'');setComposerDraft(draft);setComposer(true);}
   const reducedMotion=prefs.reducedMotion||systemReduced;
   const savedShown=useCountUp(garden.saved,{enabled:!reducedMotion,resetKey:groupId});
+  const petName=capitalized(petNameOf(prefs.petName));
+  const weekNote=weekMessage(weekStory(mine,data.goals,today),`${today}-${userId}`);
   useEffect(()=>{const query=matchMedia('(prefers-reduced-motion: reduce)');const change=()=>setSystemReduced(query.matches);query.addEventListener('change',change);return()=>query.removeEventListener('change',change);},[]);
   useEffect(()=>{SpeechService.init();SpeechService.setRate(prefs.speechRate);},[prefs.speechRate]);
   function goTo(id:TabId){setTab(id);window.scrollTo({top:0});}
@@ -250,11 +257,16 @@ function Workspace({session}:{session:Session}) {
     const {error}=await requireDatabase().from('profiles').upsert(next);
     if(error){setProfile(previous);throw error;}localStorage.setItem(`av-profile-${userId}`,JSON.stringify(next));
   }
-  async function finishProfile(e:React.FormEvent){
-    e.preventDefault();if(!consent)return;
+  async function namePet(name:string){
+    if(!profile)return;
+    await act(async()=>{await updateProfile({...profile,preferences:{...prefs,petName:name} as Profile['preferences']});setMessage(`¡Me encanta! Desde ahora me llamo ${capitalized(name)}.`,{tone:'celebration'});});
+  }
+  async function finishOnboarding(result:OnboardingResult){
     await act(async()=>{
-      const next={id:userId,display_name:onboardingName.trim(),preferences:defaults,learned_categories:{},consent_at:new Date().toISOString()};
-      const {error}=await requireDatabase().from('profiles').upsert(next);if(error)throw error;setProfile(next);
+      const next={id:userId,display_name:result.name,preferences:{...defaults,petName:result.petName},learned_categories:{},consent_at:new Date().toISOString()};
+      const {error}=await requireDatabase().from('profiles').upsert(next);if(error)throw error;setProfile(next as Profile);
+      if(result.goal){const id=await rpc<string>('create_goal',{p_title:result.goal.title,p_amount:result.goal.amount,p_date:result.goal.date,p_group:null});setSelectedGoalId(id);}
+      setMessage(`¡Listo, ${firstName(result.name)}! ${capitalized(petNameOf(result.petName))} ya está contigo.`,{tone:'celebration'});
     });
   }
   async function saveMovement(m:Movement,phrase:string,originalCategory:string){
@@ -294,13 +306,8 @@ function Workspace({session}:{session:Session}) {
       setChat(previous=>[...previous,{question,answer:reply.answer}]);setAssistantQuestion('');
     });
   }
-  if(!profileReady)return <LoadingScreen label="Cargando tu perfil…"/>;
-  if(!profile)return <main className="av-page"><section className="av-card"><h1>Prepara tu jardín</h1><form onSubmit={finishProfile}>
-    <label>Tu nombre<input required maxLength={100} autoComplete="name" value={onboardingName} onChange={e=>setOnboardingName(e.target.value)}/></label>
-    <p>Usa datos de práctica. Guardaremos tu perfil, preferencias y movimientos en Supabase. Solo los aportes de un grupo son visibles para sus miembros.</p>
-    <label className="av-check"><input required type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/>Acepto este uso de mis datos.</label>
-    <button disabled={busy}>Continuar</button></form>{error&&<p role="alert">{error}</p>}
-    <button className="av-link" onClick={()=>requireDatabase().auth.signOut()}>Cerrar sesión</button></section></main>;
+  if(!profileReady)return <LoadingScreen label="Despertando a tu alcancía…"/>;
+  if(!profile)return <Onboarding initialName={onboardingName} busy={busy} error={error} onFinish={finishOnboarding} onSignOut={()=>requireDatabase().auth.signOut()}/>;
   return <div className={`av-app ${prefs.highContrast?'av-contrast':''} ${prefs.largeText?'av-large':''} ${prefs.reducedMotion?'av-still':''}`}>
     <a className="av-skip" href="#av-main">Saltar al contenido</a>
     <header className="av-header safe-top"><a className="av-brand" href="#av-main" translate="no"><BrandIcon/> Alcancía Viva</a>
@@ -319,6 +326,7 @@ function Workspace({session}:{session:Session}) {
       {pending>0&&<p role="status">{pending} movimiento(s) pendiente(s). <button className="av-link" disabled={!online||busy} onClick={()=>act(flushQueue)}>Reintentar sincronización</button></p>}
       <div className="av-tab-panel" key={tab}>
       {tab==='garden'&&<>
+        <CompanionGreeting greeting={greetingFor(limaHour())} name={firstName(profile.display_name)} petName={prefs.petName} mood={weekNote.mood} lines={weekNote.lines} growth={growthStage(garden.percent)} busy={busy} onNamePet={namePet}/>
         <Garden goals={selectedGoals} groups={data.groups} selectedId={selectedGoalId} today={today} prefs={prefs} onSelect={setSelectedGoalId} onContribute={openComposer} onCreate={()=>setTab('goals')} watering={watering} celebration={celebration}/>
         <div className="av-stats"><section className="av-card"><h2>Avance conjunto de tus metas</h2><strong>{soles(savedShown)}</strong><p>{selectedGoals.length} meta(s){isOverview?' personales y compartidas':selectedGroup?` de ${selectedGroup.name}`:' personales'}. Cada planta crece según su propio avance.</p></section>
           <section className="av-card av-budget-card"><h2>Tu presupuesto semanal</h2><p>Solo tus gastos de esta semana, de lunes a hoy.</p><BudgetGauge spent={spent} budget={prefs.weeklyBudget} movements={mine} today={today}/>
@@ -349,11 +357,13 @@ function Workspace({session}:{session:Session}) {
               <button className="av-secondary" disabled={busy} onClick={()=>{if(window.confirm(`¿Rechazar la solicitud de ${r.name}? Podrá volver a pedir ingreso con un código.`))void act(async()=>{await rpc('decide_group_request',{p_request:r.id,p_approve:false});await refresh();setMessage('Solicitud rechazada.');});}}>Rechazar</button></div>)}</>}
         </section>}</>}
       {tab==='history'&&<MovementHistory snapshot={data} profile={profile} scope={groupId} busy={busy} onRegister={()=>openComposer()} onUndo={id=>act(async()=>{await rpc('reverse_movement',{p_id:id});await refresh();setMessage('Movimiento revertido; actualizamos el avance.');})}/>}
-      {tab==='assistant'&&<><h1>Un paso a la vez</h1><p>Soy el asistente de IA de Alcancía Viva. Puedo ayudarte a comprender tus registros; las propuestas no mueven dinero ni crean aportes.</p>
-        {!chat.length&&<EmptyState title="Pregunta lo que quieras entender" text="Por ejemplo: «¿En qué gasté más esta semana?» o «¿Cuánto me falta para mi laptop?». Puedes escribir o dictar." action={{label:'Escribir una pregunta',icon:<MessageCircle size={24} aria-hidden="true"/>,onClick:()=>document.getElementById('av-assistant-question')?.focus()}}/>}
-        <div role="log" aria-label="Conversación con el asistente" aria-live="polite">{chat.map((item,i)=><section className="av-card" key={i}><p><strong>Tú:</strong> {item.question}</p><AssistantAnswer answer={item.answer} highlight={!reducedMotion}/></section>)}</div>
+      {tab==='assistant'&&<><h1>Un paso a la vez</h1><div className="av-assistant-intro"><Mascot mood={busy?'thinking':'happy'} growth={growthStage(garden.percent)} size={88}/><p>{assistantIntro(prefs.petName,firstName(profile.display_name))}</p></div>
+        {!chat.length&&<EmptyState title="Pregúntame lo que quieras entender" text="Por ejemplo: «¿En qué gasté más esta semana?» o «¿Cuánto me falta para mi laptop?». Puedes escribir o dictar." action={{label:'Escribir una pregunta',icon:<MessageCircle size={24} aria-hidden="true"/>,onClick:()=>document.getElementById('av-assistant-question')?.focus()}}/>}
+        <div role="log" aria-label="Conversación con el asistente" aria-live="polite">{chat.map((item,i)=><section className="av-chat-turn" key={i}><p className="av-bubble av-bubble--me"><strong>Tú:</strong> {item.question}</p><div className="av-bubble-row"><Mascot mood="happy" growth={growthStage(garden.percent)} size={48} className="av-bubble-avatar"/><div className="av-bubble av-bubble--pet"><AssistantAnswer answer={item.answer} highlight={!reducedMotion} speaker={petName}/></div></div></section>)}</div>
         <AssistantQuestionForm question={assistantQuestion} onQuestion={setAssistantQuestion} busy={busy||composer} onSubmit={askAssistant}/></>}
-      {tab==='settings'&&<><h1>A tu manera</h1><section className="av-card"><h2>Preferencias de accesibilidad</h2>
+      {tab==='settings'&&<><h1>A tu manera</h1><section className="av-card av-pet-settings"><Mascot mood="happy" growth={growthStage(garden.percent)} size={72}/><div><h2>Tu alcancía</h2>
+        <form onSubmit={e=>{e.preventDefault();const value=String(new FormData(e.currentTarget).get('pet')||'').trim();if(value)void namePet(value);}}><label>Nombre de tu alcancía<input name="pet" defaultValue={prefs.petName} key={prefs.petName} maxLength={24} autoComplete="off" spellCheck={false} placeholder="Por ejemplo, Chanchi…"/></label><button type="submit" className="av-secondary" disabled={busy}>Guardar nombre</button></form></div></section>
+        <section className="av-card"><h2>Preferencias de accesibilidad</h2>
         {([['highContrast','Alto contraste'],['largeText','Texto grande (200 %)'],['reducedMotion','Reducir movimiento'],['simple','Mensajes sencillos'],['audio','Leer confirmaciones en voz alta']] as const).map(([key,label])=><label className="av-check" key={key}><input type="checkbox" checked={prefs[key]} disabled={busy} onChange={e=>act(async()=>{await updateProfile({...profile,preferences:{...prefs,[key]:e.target.checked}});setMessage('Preferencia guardada.');})}/>{label}</label>)}
         <fieldset className="av-theme-picker"><legend>Tema de color</legend>
           {themeOptions.map(([value,label,Icon])=><label className="av-theme-option" key={value}><input type="radio" name="av-theme" value={value} checked={prefs.theme===value} disabled={busy} onChange={()=>act(async()=>{await updateProfile({...profile,preferences:{...prefs,theme:value} as Profile['preferences']});setMessage('Tema actualizado.');})}/><Icon size={24} aria-hidden="true"/><span>{label}</span></label>)}
@@ -376,7 +386,7 @@ function Workspace({session}:{session:Session}) {
     <button type="button" className="av-secondary av-fab-voice" aria-label="Hablar" data-voice-entry onClick={()=>setVoiceOpen(true)}><Mic size={24} aria-hidden="true"/></button>
     <button type="button" className="av-fab" aria-label="Registrar movimiento" aria-keyshortcuts="n" onClick={()=>openComposer()}><Plus size={24} aria-hidden="true"/></button>
     {composer&&<MovementComposer data={data} profile={profile} groupId={selectedGroup?.id||''} initialGoalId={composerGoalId} initialDraft={composerDraft} audio={prefs.audio} onClose={()=>{setComposer(false);setComposerDraft(null);}} onSave={saveMovement}/>}
-    {voiceOpen&&<VoiceSheet reduced={reducedMotion} goals={data.goals} movements={mine} profile={profile} today={today} weeklyBudget={prefs.weeklyBudget} audio={prefs.audio}
+    {voiceOpen&&<VoiceSheet reduced={reducedMotion} petName={prefs.petName.trim()?petName:''} growth={growthStage(garden.percent)} goals={data.goals} movements={mine} profile={profile} today={today} weeklyBudget={prefs.weeklyBudget} audio={prefs.audio}
       onNavigate={tab=>goTo(tab)} onAsk={question=>{goTo('assistant');void askQuestion(question);}} onSave={saveMovement}
       onOpenComposer={draft=>{setVoiceOpen(false);openComposer(undefined,draft);}} onClose={()=>setVoiceOpen(false)}/>}
   </div>;
@@ -447,7 +457,7 @@ function MovementComposer({data,profile,groupId,initialGoalId,initialDraft=null,
   return <dialog ref={dialog} className="av-dialog" aria-labelledby="movement-title" onCancel={e=>{if(busy)e.preventDefault();else onClose();}}>
     <div className="av-sheet-grip" {...sheetDrag}><span className="av-sheet-handle" aria-hidden="true"/>
       <div className="av-dialog-title"><h2 id="movement-title">Registrar movimiento</h2><button type="button" className="av-secondary" onClick={onClose} disabled={busy} aria-label="Cerrar registro">Cerrar</button></div></div>
-    <p>Puedes hablar, escribir o completar los datos. Confirma el destino antes de guardar.</p>
+    <p>Cuéntame qué pasó con tu dinero: puedes hablar, escribir o completar los datos. Antes de guardar, confirmas el destino.</p>
     <label>Describe tu movimiento<textarea ref={phraseInput} value={phrase} onChange={e=>setPhrase(e.target.value)} placeholder="Ahorré 100 soles para mi laptop…" maxLength={500}/></label>
     <div className="av-actions"><button type="button" className="av-secondary" aria-pressed={listening} onClick={voice} disabled={busy}>{listening?'Detener micrófono':'Dictar movimiento'}</button><button type="button" disabled={busy||!phrase.trim()} onClick={interpret}>{busy?'Interpretando…':'Interpretar texto'}</button></div>
     <p role="status" aria-live="polite">{listening?dictation.status:(info||dictation.status)}</p>

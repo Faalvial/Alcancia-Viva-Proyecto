@@ -24,7 +24,7 @@ const tab = (page, name) => page.getByRole('button', { name: new RegExp(`^${name
     await mockBackend(page, { profileDelay: 4000 });
     await page.goto(BASE);
     await page.waitForSelector('.av-skeleton');
-    assert.equal(await page.getByRole('status').filter({ hasText: 'Cargando tu perfil…' }).count(), 1);
+    assert.equal(await page.getByRole('status').filter({ hasText: 'Despertando a tu alcancía…' }).count(), 1);
     await shot(page, 'carga');
     await page.close();
 

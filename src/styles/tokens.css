@@ -72,6 +72,13 @@
   --c-stage-4: #b0537a; /* Primeras flores */
   --c-stage-5: #b8680e; /* Meta florecida */
 
+  /* Mascota (cerdito-alcancía): crema con contorno verde, como el logo */
+  --mascot-body: #fffaf0;
+  --mascot-line: #1f4a31;
+  --mascot-inner: #f6c2b3;
+  --mascot-blush: #f29f8d;
+  --mascot-coin: #e8b84a;
+
   /* Tipografía */
   --font-display: "Fraunces", Georgia, "Times New Roman", serif;
   --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;

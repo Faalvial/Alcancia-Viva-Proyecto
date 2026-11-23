@@ -39,11 +39,11 @@ export function AnswerAudio({answer}:{answer:string}) {
  * Respuesta del asistente con lectura en voz alta. Mientras se lee, resalta la
  * palabra actual (evento onboundary); sin resaltado con movimiento reducido.
  */
-export function AssistantAnswer({answer,highlight}:{answer:string;highlight:boolean}) {
+export function AssistantAnswer({answer,highlight,speaker='Asistente'}:{answer:string;highlight:boolean;speaker?:string}) {
   const playback=useAnswerPlayback(answer,highlight);
   const parts=highlight&&playback.word?splitAtWord(answer,playback.word.start,playback.word.length):null;
   return <>
-    <p><strong>Asistente:</strong> {parts?<>{parts.before}<span className="av-spoken-word">{parts.word}</span>{parts.after}</>:answer}</p>
+    <p><strong>{speaker}:</strong> {parts?<>{parts.before}<span className="av-spoken-word">{parts.word}</span>{parts.after}</>:answer}</p>
     <Controls {...playback}/>
   </>;
 }

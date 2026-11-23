@@ -5,10 +5,14 @@ import type { DictationMessages } from '../services/voice/questionDictation';
 import { SpeechService } from '../services/voice/speechService';
 import { playEarcon, vibrate } from '../services/voice/earcons';
 import {
-  SLOT_QUESTIONS, answerQuery, confirmationPrompt, fillSlot, nextSlot, parseConfirmation, routeIntent,
+  answerQuery, confirmationPrompt, fillSlot, nextSlot, parseConfirmation, routeIntent,
 } from '../services/voice/intents';
 import type { Slot, VoiceDraft, VoiceTab } from '../services/voice/intents';
 import type { VoiceStage } from '../components/ListeningIndicator';
+import { phrase } from '../live/companion';
+
+// Frases variadas para que la mascota no repita siempre lo mismo.
+const say_=(kind:Parameters<typeof phrase>[0],values:Record<string,string>={})=>phrase(kind,Math.floor(Math.random()*997),values);
 import { canRecord, createRecorder, transcribe } from '../services/voice/recorder';
 import { requireDatabase } from '../live/client';
 
@@ -132,7 +136,7 @@ export function useVoiceFlow(options:VoiceFlowOptions) {
     asks.current[slot]=count+1;
     awaiting.current={kind:'slot',slot,draft};
     draftRef.current=draft;
-    say(`${retry?'No te entendí. ':''}${SLOT_QUESTIONS[slot]}`);
+    say(`${retry?`${say_('notUnderstood')} `:''}${say_(slot)}`);
   }
 
   function advance(draft:VoiceDraft){
@@ -162,7 +166,7 @@ export function useVoiceFlow(options:VoiceFlowOptions) {
       await onSave(movement,draft.text,category);
       playEarcon('success',audio);vibrate('success');
       stopAll();onClose();
-      SpeechService.speak('Listo, guardado.');
+      SpeechService.speak(say_('saved'));
     }catch{
       go('notHeard');setPrompt('No pudimos guardar el movimiento. Tus datos se conservan: elige «Prefiero escribir» para revisarlos.');
     }
@@ -174,7 +178,7 @@ export function useVoiceFlow(options:VoiceFlowOptions) {
     gotResult.current=true;dictation.stop();SpeechService.stopSpeaking();
     if(choice==='yes'){void save(state.draft);return;}
     if(choice==='no'){openForm(state.draft);return;}
-    stopAll();latest.current.onClose();SpeechService.speak('Cancelado. No guardé nada.');
+    stopAll();latest.current.onClose();SpeechService.speak(say_('cancelled'));
   }
 
   function handle(text:string){
@@ -188,7 +192,7 @@ export function useVoiceFlow(options:VoiceFlowOptions) {
       if((asks.current.confirm||0)>MAX_REASKS){openForm(state.draft);return;}
       asks.current.confirm=(asks.current.confirm||0)+1;
       const question=confirmationPrompt(state.draft,goals);
-      say(`No te entendí. ${question} Di sí, no o cancelar.`,()=>{go('review');setPrompt(question);gotResult.current=false;transcriptRef.current='';setTranscript('');dictation.start('');stageRef.current='review';});
+      say(`${say_('notUnderstood')} ${question} Di sí, no o cancelar.`,()=>{go('review');setPrompt(question);gotResult.current=false;transcriptRef.current='';setTranscript('');dictation.start('');stageRef.current='review';});
       return;
     }
     if(state.kind==='slot'){
@@ -200,7 +204,7 @@ export function useVoiceFlow(options:VoiceFlowOptions) {
     const intent=routeIntent(text,{goals,profile});
     if(intent.kind==='empty'){go('notHeard');setPrompt(VOICE_MESSAGES.noSpeech!);return;}
     if(intent.kind==='navigate'){
-      stopAll();latest.current.onNavigate(intent.tab);latest.current.onClose();SpeechService.speak(intent.label);return;
+      stopAll();latest.current.onNavigate(intent.tab);latest.current.onClose();SpeechService.speak(say_('navigate',{label:intent.label}));return;
     }
     if(intent.kind==='query'){
       const answer=answerQuery(intent,{goals,movements,today,weeklyBudget});
@@ -208,7 +212,7 @@ export function useVoiceFlow(options:VoiceFlowOptions) {
       return;
     }
     if(intent.kind==='assistant'){
-      stopAll();latest.current.onAsk(intent.question);latest.current.onClose();SpeechService.speak('Le pregunto al asistente.');return;
+      stopAll();latest.current.onAsk(intent.question);latest.current.onClose();SpeechService.speak(say_('ask'));return;
     }
     draftRef.current=intent.draft;
     if(intent.draft.planning){openForm(intent.draft);return;}

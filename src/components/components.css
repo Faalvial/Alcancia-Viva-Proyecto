@@ -1481,3 +1481,379 @@
     display: none !important;
   }
 }
+
+/* ===================== Versión humana: mascota ===================== */
+
+.av-mascot {
+  display: block;
+  overflow: visible;
+  flex-shrink: 0;
+}
+
+.av-mascot-shadow { fill: var(--line); opacity: 0.55; }
+.av-mascot-fill { fill: var(--mascot-body); }
+.av-mascot-inner { fill: var(--mascot-inner); }
+.av-mascot-line { stroke: var(--mascot-line); }
+.av-mascot-fill.av-mascot-line,
+.av-mascot-inner.av-mascot-line { stroke: var(--mascot-line); }
+.av-mascot-ink { fill: var(--mascot-line); }
+.av-mascot-shine { fill: var(--mascot-body); }
+.av-mascot-slot { fill: var(--mascot-line); }
+.av-mascot-blush { fill: var(--mascot-blush); opacity: 0.55; }
+.av-mascot-mouth { fill: #7a2f2a; stroke: var(--mascot-line); stroke-width: 2.4; }
+.av-mascot-stem { stroke: var(--c-ahorro); fill: none; }
+.av-mascot-leaf { fill: var(--c-ahorro); }
+.av-mascot-leaf--light { fill: var(--c-stage-1); }
+.av-mascot-flower ellipse { fill: var(--c-stage-4); }
+.av-mascot-flower-core { fill: var(--mascot-coin); }
+.av-mascot-coin circle { fill: var(--mascot-coin); stroke: var(--mascot-line); stroke-width: 3; }
+.av-mascot-coin rect { fill: var(--mascot-line); }
+
+.av-contrast .av-mascot-shadow { fill: var(--ink); opacity: 0.3; }
+
+/* Animaciones breves (< 5 s): al aparecer o cambiar de ánimo. */
+@media (prefers-reduced-motion: no-preference) {
+  .av-mascot-body,
+  .av-mascot-sprout {
+    transform-box: fill-box;
+  }
+  .av-mascot .av-mascot-body {
+    transform-origin: 50% 100%;
+    animation: av-mascot-hop 0.9s var(--av-ease-out) 1;
+  }
+  .av-mascot .av-mascot-sprout {
+    transform-origin: 50% 100%;
+    animation: av-mascot-sway 1.6s var(--av-ease-in-out) 2;
+  }
+  .av-mascot .av-mascot-eyes {
+    transform-box: fill-box;
+    transform-origin: 50% 50%;
+    animation: av-mascot-blink 3.2s 0.6s 1;
+  }
+  .av-mascot--speaking .av-mascot-mouth {
+    transform-box: fill-box;
+    transform-origin: 50% 50%;
+    animation: av-mascot-talk 0.32s ease-in-out infinite alternate;
+  }
+  .av-mascot--listening .av-mascot-ear {
+    transform-box: fill-box;
+    transform-origin: 30% 100%;
+    animation: av-mascot-ear 0.6s var(--av-ease-out) 2 alternate;
+  }
+  .av-mascot--celebrating .av-mascot-coin {
+    animation: av-mascot-coin 1.1s var(--av-ease-out) 1 both;
+  }
+  .av-mascot--celebrating .av-mascot-body {
+    animation: av-mascot-hop 0.55s var(--av-ease-out) 3;
+  }
+}
+
+@keyframes av-mascot-hop {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  35% { transform: translateY(-6px) scale(0.98, 1.03); }
+  60% { transform: translateY(0) scale(1.03, 0.97); }
+}
+
+@keyframes av-mascot-sway {
+  0%, 100% { transform: rotate(0deg); }
+  30% { transform: rotate(-7deg); }
+  70% { transform: rotate(6deg); }
+}
+
+@keyframes av-mascot-blink {
+  0%, 46%, 54%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.1); }
+}
+
+@keyframes av-mascot-talk {
+  from { transform: scaleY(0.45); }
+  to { transform: scaleY(1.1); }
+}
+
+@keyframes av-mascot-ear {
+  to { transform: rotate(-10deg); }
+}
+
+@keyframes av-mascot-coin {
+  0% { transform: translateY(30px) scale(0.4); opacity: 0; }
+  60% { transform: translateY(-8px) scale(1.05); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.av-still .av-mascot * {
+  animation: none !important;
+}
+
+/* Saludo de la mascota en el jardín: globo de diálogo con colita hacia ella. */
+.av-greeting {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin: 0 0 1.25rem;
+}
+
+.av-greeting-mascot {
+  margin-bottom: -0.25rem;
+}
+
+.av-greeting-bubble {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  padding: 1rem 1.25rem;
+  border-radius: 22px 22px 22px 6px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: var(--av-shadow-sm);
+}
+
+.av-greeting-bubble::before {
+  content: "";
+  position: absolute;
+  left: -9px;
+  bottom: 14px;
+  width: 16px;
+  height: 16px;
+  background: var(--card);
+  border-left: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  transform: rotate(45deg);
+}
+
+.av-app .av-greeting-bubble p {
+  margin: 0.2rem 0;
+  color: var(--ink);
+}
+
+.av-app .av-greeting-title {
+  font-family: var(--font-display);
+  font-size: var(--av-text-h2);
+  line-height: 1.2;
+}
+
+.av-app .av-greeting-signature {
+  font-family: var(--font-display);
+  color: var(--muted);
+  font-size: 0.95em;
+}
+
+.av-pet-name {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--line);
+}
+
+.av-app .av-pet-name label {
+  margin: 0 0 0.4rem;
+}
+
+.av-pet-name-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.av-pet-name-row input {
+  flex: 1 1 12rem;
+}
+
+.av-pet-name .av-chips {
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 479px) {
+  .av-greeting {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .av-greeting-bubble {
+    border-radius: 6px 22px 22px 22px;
+  }
+  .av-greeting-bubble::before {
+    left: 28px;
+    top: -9px;
+    bottom: auto;
+    border: 0;
+    border-left: 1px solid var(--line);
+    border-top: 1px solid var(--line);
+  }
+}
+
+/* Acceso: la mascota saluda junto al título. */
+.av-auth-hello {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.av-app .av-auth-hello h2,
+.av-page .av-auth-hello h2 {
+  margin: 0;
+}
+
+/* Bienvenida guiada */
+.av-onboarding-card {
+  max-width: 40rem;
+  margin: 2rem auto;
+}
+
+.av-onboarding-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.av-page .av-onboarding-head h1 {
+  margin: 0.25rem 0 0;
+  font-size: clamp(1.6rem, 1.2rem + 1.8vw, 2.3rem);
+}
+
+.av-page .av-onboarding-step {
+  margin: 0;
+  font-size: 0.85em;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.av-onboarding-dots {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.av-onboarding-dots span {
+  width: 1.75rem;
+  height: 0.35rem;
+  border-radius: var(--av-radius-pill);
+  background: var(--line);
+}
+
+.av-onboarding-dots span.is-done {
+  background: var(--c-ahorro);
+}
+
+.av-onboarding-final {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 479px) {
+  .av-onboarding-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* Asistente: presentación y conversación en burbujas. */
+.av-assistant-intro {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.av-app .av-assistant-intro p {
+  margin: 0;
+}
+
+.av-chat-turn {
+  display: grid;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.av-app .av-bubble {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: 18px;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.av-app .av-bubble--me {
+  justify-self: end;
+  max-width: min(36rem, 88%);
+  border-bottom-right-radius: 6px;
+  background: var(--c-ahorro-soft);
+}
+
+.av-bubble-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.av-app .av-bubble--pet {
+  max-width: min(40rem, 88%);
+  border-bottom-left-radius: 6px;
+  background: var(--card);
+  border: 1px solid var(--line);
+}
+
+.av-app .av-bubble--pet p {
+  margin: 0 0 0.5rem;
+  color: var(--ink);
+}
+
+.av-contrast .av-bubble--me {
+  border: 1px solid var(--ink);
+}
+
+/* Preferencias: tu alcancía */
+.av-pet-settings {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.av-pet-settings > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.av-pet-settings form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.av-app .av-pet-settings form label {
+  flex: 1 1 14rem;
+  margin: 0;
+}
+
+/* Aviso de celebración con la mascota */
+.av-toast-mascot {
+  display: grid;
+  place-items: center;
+  width: 3.25rem;
+}
+
+/* Panel de voz: la mascota ocupa el centro del anillo. */
+.av-listening-ring {
+  width: 8rem;
+  height: 8rem;
+}
+
+.av-listening-core,
+.av-listening--notHeard .av-listening-core,
+.av-listening--unsupported .av-listening-core,
+.av-listening--idle .av-listening-core,
+.av-listening--answer .av-listening-core {
+  width: 6.25rem;
+  height: 6.25rem;
+  background: var(--card);
+  border: 2px solid var(--line);
+  color: inherit;
+}
+
+.av-listening-core .av-mascot {
+  margin-top: 0.4rem;
+}
+
+.av-onboarding .av-actions button {
+  white-space: nowrap;
+}

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Mascot } from './Mascot';
 
 /** Ilustración propia: una maceta vacía y una semilla a punto de caer en la tierra. */
 export function SeedPot({className=''}:{className?:string}) {
@@ -16,11 +17,11 @@ export function SeedPot({className=''}:{className?:string}) {
   </svg>;
 }
 
-/** Estado vacío: ilustración, título, texto y una sola acción. */
-export function EmptyState({title,text,action,headingLevel=2}:{title:string;text:string;action?:{label:string;onClick:()=>void;icon?:ReactNode};headingLevel?:2|3}) {
+/** Estado vacío: la mascota anima (o la maceta con semilla), título, texto y una sola acción. */
+export function EmptyState({title,text,action,headingLevel=2,mascot=true}:{title:string;text:string;action?:{label:string;onClick:()=>void;icon?:ReactNode};headingLevel?:2|3;mascot?:boolean}) {
   const Heading=headingLevel===2?'h2':'h3';
   return <section className="av-empty-state">
-    <SeedPot/>
+    {mascot?<Mascot mood="encouraging" growth={0} size={120}/>:<SeedPot/>}
     <Heading>{title}</Heading>
     <p>{text}</p>
     {action&&<button type="button" className="av-with-icon" onClick={action.onClick}>{action.icon}{action.label}</button>}
