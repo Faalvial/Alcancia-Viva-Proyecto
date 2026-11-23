@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Check, Keyboard, Mic, Pencil, Square, X } from 'lucide-react';
 import { ListeningIndicator } from './ListeningIndicator';
 import { useVoiceFlow } from '../hooks/useVoiceFlow';
+import { primeAudio } from '../services/voice/audioContext';
 import type { VoiceFlowOptions } from '../hooks/useVoiceFlow';
 import { useSheetDrag } from '../hooks/useSheetDrag';
 
@@ -34,7 +35,7 @@ export function VoiceSheet({reduced,petName='',growth=2,...options}:VoiceFlowOpt
     </>:<>
       <ListeningIndicator stage={flow.stage} reduced={reduced} petName={petName} growth={growth}/>
       <p className={`av-voice-transcript ${flow.transcript?'':'is-empty'}`}>{flow.transcript||(listening?'Te escucho…':'')}</p>
-      {flow.recording&&<p className="av-voice-prompt" aria-live="polite">Grabando. Pulsa «Detener» cuando termines.</p>}
+      {flow.recording&&<p className="av-voice-prompt" aria-live="polite">Te escucho. Cuando hagas una pausa lo envío; también puedes pulsar «Detener».</p>}
       {flow.prompt&&<p className="av-voice-prompt" aria-live="polite">{flow.prompt}</p>}
       {confirming&&<div className="av-actions av-voice-confirm" role="group" aria-label="Confirmar el registro">
         <button type="button" className="av-with-icon" onClick={()=>flow.confirm('yes')}><Check size={24} aria-hidden="true"/>Sí, guardar</button>
@@ -43,7 +44,7 @@ export function VoiceSheet({reduced,petName='',growth=2,...options}:VoiceFlowOpt
       </div>}
       <div className="av-actions av-voice-actions">
         <button ref={primary} type="button" className={`av-with-icon ${confirming?'av-secondary':''}`} aria-pressed={listening}
-          disabled={flow.stage==='saving'} onClick={listening&&!confirming?flow.stop:flow.start}>
+          disabled={flow.stage==='saving'} onClick={listening&&!confirming?flow.stop:()=>{primeAudio();flow.start();}}>
           {listening&&!confirming?<><Square size={20} aria-hidden="true"/>Detener</>:<><Mic size={24} aria-hidden="true"/>{confirming?'Empezar de nuevo':'Hablar de nuevo'}</>}
         </button>
         <button type="button" className="av-secondary av-with-icon" onClick={flow.preferWriting}><Keyboard size={24} aria-hidden="true"/>Prefiero escribir</button>

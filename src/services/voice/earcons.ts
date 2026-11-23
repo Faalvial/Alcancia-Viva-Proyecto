@@ -1,3 +1,4 @@
+import { getAudioContext } from './audioContext.ts';
 /**
  * Earcons generados con Web Audio API (sin archivos): inicio de escucha, fin de
  * escucha y éxito, cada uno de menos de 200 ms. Solo suenan si el usuario activó
@@ -17,14 +18,11 @@ export function earconLength(name:EarconName){
   return Math.max(...EARCONS[name].map(tone=>tone.at+tone.duration));
 }
 
-let context:AudioContext|null=null;
-
 export function playEarcon(name:EarconName,enabled:boolean){
   if(!enabled||typeof window==='undefined')return false;
   try{
-    const Context=window.AudioContext||(window as unknown as {webkitAudioContext?:typeof AudioContext}).webkitAudioContext;
-    if(!Context)return false;
-    context=context||new Context();
+    const context=getAudioContext();
+    if(!context)return false;
     if(context.state==='suspended')void context.resume();
     const now=context.currentTime+0.01;
     for(const tone of EARCONS[name]){

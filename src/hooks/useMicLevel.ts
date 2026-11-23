@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { getAudioContext } from '../services/voice/audioContext';
 
 // Si el usuario niega el micrófono no se vuelve a pedir en esta sesión: el anillo
 // pasa a una animación fija.
@@ -14,14 +15,14 @@ export function useMicLevel<T extends HTMLElement>(active:boolean,enabled:boolea
   const [mode,setMode]=useState<'live'|'fixed'|'off'>('off');
   useEffect(()=>{
     if(!active||!enabled){setMode('off');return;}
-    const Context=window.AudioContext||(window as unknown as {webkitAudioContext?:typeof AudioContext}).webkitAudioContext;
-    if(denied||!navigator.mediaDevices?.getUserMedia||!Context){setMode('fixed');return;}
-    let cancelled=false,frame=0,stream:MediaStream|null=null,context:AudioContext|null=null;
+    const context=getAudioContext();
+    if(denied||!navigator.mediaDevices?.getUserMedia||!context){setMode('fixed');return;}
+    let cancelled=false,frame=0,stream:MediaStream|null=null,source:MediaStreamAudioSourceNode|null=null;
     navigator.mediaDevices.getUserMedia({audio:true}).then(media=>{
       if(cancelled){media.getTracks().forEach(track=>track.stop());return;}
-      stream=media;context=new Context();
+      stream=media;
       const analyser=context.createAnalyser();analyser.fftSize=512;
-      context.createMediaStreamSource(media).connect(analyser);
+      source=context.createMediaStreamSource(media);source.connect(analyser);
       const data=new Uint8Array(analyser.fftSize);
       let level=0;
       setMode('live');
@@ -38,7 +39,7 @@ export function useMicLevel<T extends HTMLElement>(active:boolean,enabled:boolea
     return()=>{
       cancelled=true;cancelAnimationFrame(frame);
       stream?.getTracks().forEach(track=>track.stop());
-      void context?.close().catch(()=>{});
+      try{source?.disconnect();}catch{/* ya desconectado */}
       ref.current?.style.removeProperty('--av-level');
     };
   },[active,enabled]);

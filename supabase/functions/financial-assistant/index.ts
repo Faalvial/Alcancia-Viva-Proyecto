@@ -20,6 +20,30 @@ Deno.serve(async (request:Request) => {
   if(body.action==='health')return reply({ready:Boolean(Deno.env.get('GROQ_API_KEY'))});
   const key=Deno.env.get('GROQ_API_KEY');
   if(!key)return reply({error:'El asistente necesita configurar GROQ_API_KEY en Supabase. Puedes seguir registrando manualmente.'},503);
+  // Transcripción de voz para navegadores sin reconocimiento propio (Firefox, iPhone):
+  // el cliente graba con MediaRecorder y envía el audio en base64. Ver docs/VOZ.md.
+  if(body.action==='transcribe'){
+    const audio=typeof body.audio==='string'?body.audio:'';
+    const mimeType=typeof body.mimeType==='string'?body.mimeType:'audio/webm';
+    // ~1,5 MB de audio (unos 15 s) como máximo.
+    if(!audio||audio.length>2_100_000||!/^audio\/(webm|mp4|x-m4a|ogg|mpeg|wav|aac)/.test(mimeType))return reply({error:'Revisa la grabación.'},400);
+    try{
+      const bytes=Uint8Array.from(atob(audio),c=>c.charCodeAt(0));
+      const extension=/mp4|m4a|aac/.test(mimeType)?'m4a':mimeType.includes('ogg')?'ogg':mimeType.includes('wav')?'wav':mimeType.includes('mpeg')?'mp3':'webm';
+      const form=new FormData();
+      form.append('file',new Blob([bytes],{type:mimeType}),`voz.${extension}`);
+      form.append('model','whisper-large-v3-turbo');
+      form.append('language','es');
+      form.append('response_format','json');
+      form.append('temperature','0');
+      // Pista de vocabulario: mejora montos y palabras del dominio.
+      form.append('prompt','Registro de gastos, ingresos y ahorros en soles peruanos para mis metas: gasté, ahorré, recibí, almuerzo, pasaje, laptop.');
+      const response=await fetch('https://api.groq.com/openai/v1/audio/transcriptions',{method:'POST',headers:{Authorization:`Bearer ${key}`},body:form});
+      if(!response.ok)throw new Error('transcribe');
+      const result=await response.json();
+      return reply({text:typeof result.text==='string'?result.text.trim().slice(0,500):''});
+    }catch{return reply({error:'No se pudo transcribir el audio. Puedes escribir tu movimiento.'},502);}
+  }
   const question=typeof body.question==='string'?body.question.trim():'';
   if(!['interpret','advice'].includes(body.action)||!question||question.length>1500)return reply({error:'Revisa tu consulta.'},400);
   if(body.action==='interpret'&&hasUnsupportedCurrency(question))return reply({error:'Indica el importe en soles peruanos (S/). Alcancía Viva no realiza conversiones de moneda.'},400);

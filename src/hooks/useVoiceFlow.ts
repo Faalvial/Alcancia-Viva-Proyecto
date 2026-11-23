@@ -13,8 +13,6 @@ import { phrase } from '../live/companion';
 
 // Frases variadas para que la mascota no repita siempre lo mismo.
 const say_=(kind:Parameters<typeof phrase>[0],values:Record<string,string>={})=>phrase(kind,Math.floor(Math.random()*997),values);
-import { canRecord, createRecorder, transcribe } from '../services/voice/recorder';
-import { requireDatabase } from '../live/client';
 
 /** Repreguntas permitidas por slot (y para la confirmación) antes de abrir el formulario (FR-14). */
 export const MAX_REASKS=2;
@@ -67,10 +65,6 @@ export function useVoiceFlow(options:VoiceFlowOptions) {
   const transcriptRef=useRef('');
   const draftRef=useRef<VoiceDraft|null>(null);
   // Respaldo con grabación (solo si SpeechRecognition no existe y la transcripción está activada).
-  const [recording,setRecording]=useState(false);
-  const recorder=useRef<ReturnType<typeof createRecorder>|null>(null);
-  const [recordable]=useState(canRecord);
-  useEffect(()=>()=>recorder.current?.cancel(),[]);
 
   const go=useCallback((next:VoiceStage)=>{stageRef.current=next;setStage(next);},[]);
   const dictation=useDictation({
@@ -80,35 +74,28 @@ export function useVoiceFlow(options:VoiceFlowOptions) {
     messages:VOICE_MESSAGES,
   });
 
-  // Fin de la escucha sin resultado: «No te escuché» con el motivo (silencio, permiso…).
-  const wasListening=useRef(false);
+  // Grabación (Firefox, iPhone): mientras el servidor transcribe, la mascota «piensa».
   useEffect(()=>{
-    if(wasListening.current&&!dictation.listening&&!gotResult.current){
-      if(stageRef.current==='listening'){go('notHeard');setPrompt(dictation.status||VOICE_MESSAGES.noSpeech!);}
+    if(dictation.transcribing&&stageRef.current==='listening')go('processing');
+  },[dictation.transcribing,go]);
+
+  // Fin de la escucha sin resultado: «No te escuché» con el motivo (silencio, permiso…).
+  const wasActive=useRef(false);
+  useEffect(()=>{
+    const active=dictation.listening||dictation.transcribing;
+    if(wasActive.current&&!active&&!gotResult.current){
+      if(stageRef.current==='listening'||stageRef.current==='processing'){go('notHeard');setPrompt(dictation.status||VOICE_MESSAGES.noSpeech!);}
       // En la confirmación los botones siguen visibles: basta con avisar.
       else if(stageRef.current==='review')setPrompt('No te escuché. Di «sí», «no» o «cancelar», o usa los botones.');
     }
-    wasListening.current=dictation.listening;
-  },[dictation.listening,dictation.status,go]);
+    wasActive.current=active;
+  },[dictation.listening,dictation.transcribing,dictation.status,go]);
 
   function listen(){
     gotResult.current=false;transcriptRef.current='';setTranscript('');
     playEarcon('start',latest.current.audio);
     go('listening');
-    if(dictation.supported){dictation.start('');return;}
-    const media=createRecorder();recorder.current=media;
-    media.start().then(()=>setRecording(true)).catch(()=>{recorder.current=null;go('notHeard');setPrompt('El micrófono no tiene permiso. Puedes escribir tu movimiento.');});
-  }
-
-  async function finishRecording(){
-    const media=recorder.current;recorder.current=null;setRecording(false);
-    if(!media)return;
-    go('processing');setPrompt('Transcribiendo…');
-    try{
-      const text=await transcribe(await media.stop(),(name,options)=>requireDatabase().functions.invoke(name,options));
-      transcriptRef.current=text;setTranscript(text);setPrompt('');
-      if(text)handle(text);else{go('notHeard');setPrompt(VOICE_MESSAGES.noSpeech!);}
-    }catch(error){go('notHeard');setPrompt(error instanceof Error?error.message:'No se pudo transcribir el audio. Puedes escribir tu movimiento.');}
+    dictation.start('');
   }
 
   /** Dice el texto y, al terminar, vuelve a escuchar (o ejecuta then). */
@@ -175,7 +162,7 @@ export function useVoiceFlow(options:VoiceFlowOptions) {
   function confirm(choice:'yes'|'no'|'cancel'){
     const state=awaiting.current;
     if(state.kind!=='confirm')return;
-    gotResult.current=true;dictation.stop();SpeechService.stopSpeaking();
+    gotResult.current=true;dictation.cancel();SpeechService.stopSpeaking();
     if(choice==='yes'){void save(state.draft);return;}
     if(choice==='no'){openForm(state.draft);return;}
     stopAll();latest.current.onClose();SpeechService.speak(say_('cancelled'));
@@ -221,13 +208,12 @@ export function useVoiceFlow(options:VoiceFlowOptions) {
 
   function stopAll(){
     turn.current++;gotResult.current=true;
-    dictation.stop();
-    recorder.current?.cancel();recorder.current=null;setRecording(false);
+    dictation.cancel();
   }
 
   /** Empieza una conversación nueva. */
   function start(){
-    if(!dictation.supported&&!recordable){go('unsupported');setPrompt('Este navegador no admite voz; escribe tu movimiento.');return;}
+    if(!dictation.supported){go('unsupported');setPrompt('Este navegador no admite voz; escribe tu movimiento.');return;}
     SpeechService.stopSpeaking();
     awaiting.current={kind:'command'};asks.current={};draftRef.current=null;setPrompt(say_('welcome'));
     listen();
@@ -235,7 +221,8 @@ export function useVoiceFlow(options:VoiceFlowOptions) {
 
   /** «Detener»: procesa lo dicho hasta ahora, si hay algo. */
   function stop(){
-    if(recorder.current){void finishRecording();return;}
+    // Grabación: «Detener» envía lo grabado a transcribir.
+    if(dictation.mode==='record'&&dictation.listening){dictation.stop();return;}
     const heard=transcriptRef.current.trim();
     gotResult.current=true;dictation.stop();
     if(heard)handle(heard);else{go('idle');setPrompt('');}
@@ -249,7 +236,7 @@ export function useVoiceFlow(options:VoiceFlowOptions) {
   function close(){stopAll();SpeechService.stopSpeaking();latest.current.onClose();}
 
   return {
-    stage,transcript,prompt,supported:dictation.supported||recordable,listening:dictation.listening||recording,recording,
+    stage,transcript,prompt,supported:dictation.supported,listening:dictation.listening,recording:dictation.mode==='record'&&dictation.listening,transcribing:dictation.transcribing,
     awaitingConfirmation:awaiting.current.kind==='confirm'&&(stage==='review'),
     start,stop,confirm,preferWriting,close,
   };

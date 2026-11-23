@@ -21,6 +21,7 @@ import { LogOut, MessageCircle, Mic, Pause, Play, Monitor, Moon, Plus, Settings,
 import type { VoiceDraft } from '../services/voice/intents';
 import { playEarcon, vibrate } from '../services/voice/earcons';
 import { SPEECH_RATES } from '../services/voice/voices';
+import { primeAudio } from '../services/voice/audioContext';
 import { goalPercent, growthStage } from './garden';
 import { Toast } from '../components/Toast';
 import type { ToastData } from '../components/Toast';
@@ -245,7 +246,7 @@ export function Workspace({session}:{session:Session}) {
     <header className="av-header safe-top"><a className="av-brand" href="#av-main" translate="no"><BrandIcon/> Alcancía Viva</a>
       <div className="av-header-actions">
         <p className="av-connection" role="status" data-state={!online?'offline':connected?'online':'connecting'}><span className="av-connection-dot" aria-hidden="true"/><span className="av-connection-text">{!online?'Sin conexión':connected?'Conectado en tiempo real':'Conectando actualizaciones…'}</span></p>
-        <button type="button" className="av-secondary av-with-icon av-header-voice" data-voice-entry onClick={()=>setVoiceOpen(true)}><Mic size={24} aria-hidden="true"/>Hablar</button>
+        <button type="button" className="av-secondary av-with-icon av-header-voice" data-voice-entry onClick={()=>{primeAudio();setVoiceOpen(true);}}><Mic size={24} aria-hidden="true"/>Hablar</button>
         <span className="av-user"><UserAvatar name={profile.display_name}/><span className="av-user-name">{profile.display_name}</span></span>
         <button type="button" className="av-secondary av-icon-button av-header-settings" aria-label="Preferencias" aria-current={tab==='settings'?'page':undefined} onClick={()=>goTo('settings')}><Settings size={24} aria-hidden="true"/></button>
         <button type="button" className="av-secondary av-header-logout" onClick={signOut}>Salir</button>
@@ -315,7 +316,7 @@ export function Workspace({session}:{session:Session}) {
       </div>
     </main></div>
     <Toast toast={toast} onDismiss={()=>setToast(null)}/>
-    <button type="button" className="av-secondary av-fab-voice" aria-label="Hablar" data-voice-entry onClick={()=>setVoiceOpen(true)}><Mic size={24} aria-hidden="true"/></button>
+    <button type="button" className="av-secondary av-fab-voice" aria-label="Hablar" data-voice-entry onClick={()=>{primeAudio();setVoiceOpen(true);}}><Mic size={24} aria-hidden="true"/></button>
     <button type="button" className="av-fab" aria-label="Registrar movimiento" aria-keyshortcuts="n" onClick={()=>openComposer()}><Plus size={24} aria-hidden="true"/></button>
     {composer&&<MovementComposer data={data} profile={profile} groupId={selectedGroup?.id||''} initialGoalId={composerGoalId} initialDraft={composerDraft} audio={prefs.audio} onClose={()=>{setComposer(false);setComposerDraft(null);}} onSave={saveMovement}/>}
     {voiceOpen&&<Suspense fallback={null}><VoiceSheet reduced={reducedMotion} petName={prefs.petName.trim()?petName:''} growth={growthStage(garden.percent)} goals={data.goals} movements={mine} profile={profile} today={today} weeklyBudget={prefs.weeklyBudget} audio={prefs.audio}
@@ -368,8 +369,8 @@ function MovementComposer({data,profile,groupId,initialGoalId,initialDraft=null,
   }
   function voice(){
     if(listening){dictation.stop();phraseInput.current?.focus();return;}
-    if(!dictation.supported){setError('Este navegador no reconoce voz. Puedes escribir o completar los campos.');phraseInput.current?.focus();return;}
-    SpeechService.stopSpeaking();setError('');setInfo('');dictation.start('');
+    if(!dictation.supported){setError('Este navegador no permite usar el micrófono aquí. Puedes escribir o completar los campos.');phraseInput.current?.focus();return;}
+    primeAudio();SpeechService.stopSpeaking();setError('');setInfo('');dictation.start('');
   }
   async function submit(e:React.FormEvent){
     e.preventDefault();setError('');
