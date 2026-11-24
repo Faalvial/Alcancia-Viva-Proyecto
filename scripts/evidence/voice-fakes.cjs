@@ -1,12 +1,14 @@
 // Reconocimiento y síntesis de voz simulados para Playwright (no hay micrófono en la nube).
 //
-// installVoiceFakes(page, { micDenied, noRecognition })
+// installVoiceFakes(page, { micDenied, noRecognition, noRecorder })
+// - noRecorder: además, sin MediaRecorder (navegador sin ninguna vía de voz).
 // - window.__say(texto): la próxima escucha «oye» ese texto; __say(null) = silencio;
 //   __say('__denied') = el navegador niega el micrófono.
 // - window.__spoken: frases que la app pidió leer en voz alta.
 // - La síntesis dispara onstart, onboundary (palabra a palabra) y onend.
-async function installVoiceFakes(page, { micDenied = false, noRecognition = false } = {}) {
-  await page.addInitScript(({ micDenied, noRecognition }) => {
+async function installVoiceFakes(page, { micDenied = false, noRecognition = false, noRecorder = false } = {}) {
+  await page.addInitScript(({ micDenied, noRecognition, noRecorder }) => {
+    if (noRecorder) delete window.MediaRecorder;
     window.__queue = [];
     window.__spoken = [];
     window.__listening = 0;
@@ -61,7 +63,7 @@ async function installVoiceFakes(page, { micDenied = false, noRecognition = fals
     };
     Object.defineProperty(window, 'speechSynthesis', { value: synth, configurable: true });
     if (micDenied && navigator.mediaDevices) navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('Permiso denegado', 'NotAllowedError'));
-  }, { micDenied, noRecognition });
+  }, { micDenied, noRecognition, noRecorder });
 }
 
 module.exports = { installVoiceFakes };

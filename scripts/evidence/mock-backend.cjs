@@ -8,8 +8,8 @@
 // Uso: const { mockBackend } = require('./mock-backend.cjs');
 //      await mockBackend(page, { preferences: { largeText: true } });
 
-const SUPABASE = 'https://ahnfwlmymthfgxpyoasz.supabase.co';
-const STORAGE_KEY = 'sb-ahnfwlmymthfgxpyoasz-auth-token';
+const SUPABASE = 'https://haqdsmtildbcubvtitfk.supabase.co';
+const STORAGE_KEY = 'sb-haqdsmtildbcubvtitfk-auth-token';
 const USER_ID = '00000000-0000-4000-8000-000000000001';
 const GROUP_ID = '00000000-0000-4000-8000-0000000000a1';
 
@@ -62,7 +62,7 @@ function sampleData(preferences) {
       group_invitations: [{ id: 'i1', group_id: GROUP_ID, code: 'JARDIN-2026', expires_at: new Date(Date.now() + 864e5 * 7).toISOString(), revoked_at: null }],
     },
     rpc: {
-      my_requests: [],
+      my_requests: [{ id: 'q1', name: 'Club de lectura', status: 'pending' }],
       group_people: {
         members: [
           { user_id: USER_ID, name: 'Lucía Quispe', role: 'admin' },
@@ -114,6 +114,27 @@ async function mockBackend(page, { preferences = {}, signedIn = true, empty = fa
         data.tables.movements.unshift({ id: p.p_id, user_id: USER_ID, type: p.p_type, amount: p.p_amount, category: p.p_category, description: p.p_description, occurred_on: p.p_date, source: p.p_source, goal_id: p.p_goal || null, group_id: goal?.group_id || null, reversed_at: null, created_at: new Date().toISOString() });
         return json(null);
       }
+      // Control del usuario (migración 20261125000000_user_control.sql).
+      const p = JSON.parse(request.postData() || '{}');
+      const goals = data.tables.goal_progress;
+      const people = data.rpc.group_people;
+      if (name === 'update_goal') { const g = goals.find((x) => x.id === p.p_goal); if (g) Object.assign(g, { title: p.p_title, target_amount: p.p_amount, target_date: p.p_date }); return json(null); }
+      if (name === 'set_goal_archived') { const g = goals.find((x) => x.id === p.p_goal); if (g) g.archived = p.p_archived; return json(null); }
+      if (name === 'delete_goal') {
+        const g = goals.find((x) => x.id === p.p_goal);
+        if (g && g.current_amount > 0) return json({ code: 'P0001', message: 'Esta meta tiene aportes. Puedes archivarla para conservar tu historial' }, 400);
+        data.tables.goal_progress = goals.filter((x) => x.id !== p.p_goal); return json(null);
+      }
+      if (name === 'rename_group') { const g = data.tables.groups.find((x) => x.id === p.p_group); if (g) g.name = p.p_name; return json(null); }
+      if (name === 'set_member_role') { const m = people.members.find((x) => x.user_id === p.p_user); if (m) m.role = p.p_role; return json(null); }
+      if (name === 'remove_member') { people.members = people.members.filter((x) => x.user_id !== p.p_user); return json(null); }
+      if (name === 'leave_group' || name === 'close_group') {
+        if (name === 'close_group') goals.forEach((g) => { if (g.group_id === p.p_group) g.archived = true; });
+        data.tables.groups = data.tables.groups.filter((x) => x.id !== p.p_group);
+        data.tables.group_members = data.tables.group_members.filter((x) => x.group_id !== p.p_group);
+        return json(null);
+      }
+      if (name === 'cancel_join_request') { data.rpc.my_requests = data.rpc.my_requests.filter((x) => x.id !== p.p_request); return json(null); }
       if (name === 'reverse_movement') {
         const p = JSON.parse(request.postData() || '{}');
         const movement = data.tables.movements.find((m) => m.id === p.p_id);

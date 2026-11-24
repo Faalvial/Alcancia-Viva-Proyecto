@@ -1,9 +1,18 @@
-import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { database, requireDatabase, rpc, loadSnapshot, emptySnapshot, passwordRecovery } from './client';
 import { PasswordRecovery, RecoveryEmailForm } from './PasswordRecovery';
 import { cleanRecoveryUrl } from './recoveryFlow';
-import type { Snapshot, Profile, Preferences, Movement, Member, Request, Goal } from './client';
+import { isPlantKind, plantKindsFrom } from './plants';
+import { PlantPicker } from '../components/PlantPicker';
+import { useConfirm } from '../components/Modal';
+import { ArchivedGoals, GoalSettings } from '../components/GoalSettings';
+import { GroupManager } from '../components/GroupManager';
+import { AccountSettings } from '../components/AccountSettings';
+import { withTransition } from '../hooks/viewTransition';
+import type { PlantKind } from './plants';
+import { amountProblem, amountTooLarge, friendlyError, MAX_AMOUNT, safeStorage } from './errors';
+import type { Snapshot, Profile, Preferences, Movement, Member, Request, Goal, Group } from './client';
 import { interpretLocally, learningKey, localDate, soles, weekExpenses } from './domain';
 import { ALL_SPACES, gardenSummary, goalsForScope, movementPreset } from './garden';
 import { Garden, GoalCard } from './GardenView';
@@ -14,7 +23,7 @@ import { SpeechService } from '../services/voice/speechService';
 import { useDictation } from '../hooks/useDictation';
 import { useKeyShortcut } from '../hooks/useKeyShortcut';
 import { useSheetDrag } from '../hooks/useSheetDrag';
-import { AppNav } from '../components/AppNav';
+import { AppNav, NAV_ITEMS } from '../components/AppNav';
 import type { TabId } from '../components/AppNav';
 import { tabFromUrl, urlWithTab } from '../components/AppNav';
 import { UserAvatar } from '../components/UserAvatar';
@@ -23,6 +32,7 @@ import { VoiceSheet } from '../components/VoiceSheet';
 import type { VoiceDraft } from '../services/voice/intents';
 import { playEarcon, vibrate } from '../services/voice/earcons';
 import { SPEECH_RATES } from '../services/voice/voices';
+import { primeAudio } from '../services/voice/audioContext';
 import { goalPercent, growthStage } from './garden';
 import { Toast } from '../components/Toast';
 import type { ToastData } from '../components/Toast';
@@ -62,7 +72,7 @@ const movementDictation: Partial<DictationMessages> = {
     'network':'No se pudo conectar el reconocimiento de voz. Puedes escribir tu movimiento.',
   },
 };
-const errorMessage = (e:unknown) => e instanceof Error ? e.message : 'No pudimos completar la acción. Conservamos tus datos para reintentar.';
+const errorMessage = (e:unknown) => friendlyError(e);
 
 function BrandIcon() {
   return <img className="av-brand-icon" src="/brand/piggy-bank.svg" alt="" aria-hidden="true" width={40} height={40}/>;
@@ -97,12 +107,12 @@ function Auth() {
       const db=requireDatabase();
       if(signup) {
         if(!consent)throw new Error('Acepta el tratamiento de tus datos para crear tu cuenta.');
-        const {data,error}=await db.auth.signUp({email,password,options:{data:{display_name:name.trim(),consent_at:new Date().toISOString()}}});
+        const {data,error}=await db.auth.signUp({email,password,options:{emailRedirectTo:`${location.origin}/`,data:{display_name:name.trim(),consent_at:new Date().toISOString()}}});
         if(error)throw error;
         if(!data.session)setMessage('Revisa tu correo para confirmar la cuenta. Después vuelve aquí e inicia sesión.');
       } else {
         const {error}=await db.auth.signInWithPassword({email,password});
-        if(error)throw new Error(error.message==='Invalid login credentials'?'Correo o contraseña incorrectos.':error.message);
+        if(error)throw error;
       }
     }catch(e){setError(errorMessage(e));}finally{setBusy(false);}
   }
@@ -137,7 +147,12 @@ function Auth() {
 function Workspace({session}:{session:Session}) {
   const userId=session.user.id;
   const [profile,setProfile]=useState<Profile|null>(null),[profileReady,setProfileReady]=useState(false);
-  const [data,setData]=useState<Snapshot>(emptySnapshot),[tab,setTab]=useState<string>(()=>tabFromUrl(location.search)),[groupId,setGroupId]=useState(ALL_SPACES);
+  const [rawData,setData]=useState<Snapshot>(emptySnapshot),[tab,setTab]=useState<string>(()=>tabFromUrl(location.search)),[groupId,setGroupId]=useState(ALL_SPACES);
+  // Las metas archivadas quedan fuera del jardín y del registro; el historial las sigue nombrando.
+  const data=useMemo(()=>({...rawData,goals:rawData.goals.filter(g=>!g.archived)}),[rawData]);
+  const archivedGoals=useMemo(()=>rawData.goals.filter(g=>g.archived&&(groupId===ALL_SPACES||g.group_id===(groupId||null))),[rawData,groupId]);
+  const [confirm,confirmDialog]=useConfirm();
+  const [goalSettingsId,setGoalSettingsId]=useState(''),[correcting,setCorrecting]=useState<Movement|null>(null);
   const [toast,setToast]=useState<ToastData|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);
   const setMessage=(text:string,extra:Partial<ToastData>={})=>setToast(text?{id:Date.now()+Math.random(),text,tone:'success',...extra}:null);
   const [online,setOnline]=useState(navigator.onLine),[connected,setConnected]=useState(false);
@@ -155,6 +170,7 @@ function Workspace({session}:{session:Session}) {
   const [consent,setConsent]=useState(false);
   const queueKey=`av-pending-${userId}`;
   const prefs={...defaults,...profile?.preferences} as AppPreferences;
+  const plantKinds=plantKindsFrom(profile?.preferences);
   useTheme(prefs.theme);
   const people=peopleByGroup[groupId]||{members:[],requests:[]};
   const pendingRequests=data.groups.filter(g=>data.roles[g.id]==='admin').reduce((total,g)=>total+(peopleByGroup[g.id]?.requests.length||0),0);
@@ -172,7 +188,22 @@ function Workspace({session}:{session:Session}) {
   const savedShown=useCountUp(garden.saved,{enabled:!reducedMotion,resetKey:groupId});
   useEffect(()=>{const query=matchMedia('(prefers-reduced-motion: reduce)');const change=()=>setSystemReduced(query.matches);query.addEventListener('change',change);return()=>query.removeEventListener('change',change);},[]);
   useEffect(()=>{SpeechService.init();SpeechService.setRate(prefs.speechRate);},[prefs.speechRate]);
-  function goTo(id:TabId){setTab(id);window.scrollTo({top:0});}
+  /** Cambios de estado con animación (View Transitions); sin ella si hay movimiento reducido. */
+  const animate=(update:()=>void,direction:'forward'|'back'|'none'='none')=>withTransition(update,{enabled:!reducedMotion,direction});
+  const tabIndex=(id:string)=>NAV_ITEMS.findIndex(item=>item.id===id);
+  function goTo(id:TabId){
+    if(id===tab)return;
+    animate(()=>setTab(id),tabIndex(id)>tabIndex(tab)?'forward':'back');window.scrollTo({top:0});
+  }
+  /** Respuesta inmediata: se muestra el cambio y se sincroniza por detrás. */
+  const mutate=(fn:(s:Snapshot)=>Snapshot)=>animate(()=>setData(s=>fn(s)));
+  const sync=()=>{refresh().catch(()=>{});};
+  const patchGoal=(id:string,patch:Partial<Goal>)=>mutate(s=>({...s,goals:s.goals.map(g=>g.id===id?{...g,...patch}:g)}));
+  /** Aplica el cambio antes de la respuesta del servidor; si falla, recarga el estado real. */
+  async function optimistic(apply:()=>void,request:()=>Promise<unknown>){
+    apply();
+    try{await request();sync();}catch(e){await refresh().catch(()=>{});throw e;}
+  }
   // La pestaña se refleja en la URL (?tab=metas) para poder enlazarla y recargar sin perderla.
   useEffect(()=>{const next=urlWithTab(location.href,tab);if(next!==location.href)history.replaceState(history.state,'',next);},[tab]);
   const signOut=()=>requireDatabase().auth.signOut();
@@ -183,12 +214,12 @@ function Workspace({session}:{session:Session}) {
   const refresh=useCallback(async()=>{
     const version=++reloadCounter.current;
     const snapshot=await loadSnapshot(userId);
-    if(version===reloadCounter.current){setData(snapshot);localStorage.setItem(`av-snapshot-${userId}`,JSON.stringify(snapshot));}
+    if(version===reloadCounter.current){setData(snapshot);safeStorage.set(`av-snapshot-${userId}`,JSON.stringify(snapshot));}
   },[userId]);
   const readQueue=useCallback(():Movement[]=>{
-    try{return JSON.parse(localStorage.getItem(queueKey)||'[]');}catch{return [];}
+    const q=safeStorage.json<Movement[]>(queueKey,[]);return Array.isArray(q)?q:[];
   },[queueKey]);
-  const writeQueue=(q:Movement[])=>{localStorage.setItem(queueKey,JSON.stringify(q));setPending(q.length);};
+  const writeQueue=(q:Movement[])=>{safeStorage.set(queueKey,JSON.stringify(q));setPending(q.length);};
   async function saveRemote(m:Movement){await rpc('record_movement',{p_id:m.id,p_type:m.type,p_amount:m.amount,p_category:m.category,p_description:m.description,p_date:m.occurred_on,p_source:m.source,p_goal:m.goal_id});}
   async function flushQueue(){
     for(const m of readQueue()){
@@ -202,8 +233,8 @@ function Workspace({session}:{session:Session}) {
     (async()=>{
       try{
         const {data,error}=await requireDatabase().from('profiles').select('*').eq('id',userId).maybeSingle();
-        if(error)throw error;if(alive){setProfile(data);if(data)localStorage.setItem(`av-profile-${userId}`,JSON.stringify(data));}
-      }catch(e){if(alive){try{setProfile(JSON.parse(localStorage.getItem(`av-profile-${userId}`)||'null'));setData(JSON.parse(localStorage.getItem(`av-snapshot-${userId}`)||'null')||emptySnapshot);}catch{}setError(navigator.onLine?errorMessage(e):'Estás sin conexión. Puedes registrar por texto y sincronizar después.');}}finally{if(alive)setProfileReady(true);}
+        if(error)throw error;if(alive){setProfile(data);if(data)safeStorage.set(`av-profile-${userId}`,JSON.stringify(data));}
+      }catch(e){if(alive){setProfile(safeStorage.json<Profile|null>(`av-profile-${userId}`,null));setData(safeStorage.json<Snapshot|null>(`av-snapshot-${userId}`,null)||emptySnapshot);setError(navigator.onLine?errorMessage(e):'Estás sin conexión. Puedes registrar por texto y sincronizar después.');}}finally{if(alive)setProfileReady(true);}
     })();
     setPending(readQueue().length);
     return()=>{alive=false;reloadCounter.current++;};
@@ -248,7 +279,85 @@ function Workspace({session}:{session:Session}) {
     const previous=profile;
     setProfile(next);
     const {error}=await requireDatabase().from('profiles').upsert(next);
-    if(error){setProfile(previous);throw error;}localStorage.setItem(`av-profile-${userId}`,JSON.stringify(next));
+    if(error){setProfile(previous);throw error;}safeStorage.set(`av-profile-${userId}`,JSON.stringify(next));
+  }
+  async function savePlantKinds(next:Record<string,PlantKind>){
+    if(!profile)return;
+    await updateProfile({...profile,preferences:{...prefs,plantKinds:next} as Profile['preferences']});
+  }
+  async function choosePlant(goalId:string,kind:PlantKind){
+    if(plantKinds[goalId]===kind||(!plantKinds[goalId]&&kind==='cosmos'))return;
+    await act(async()=>{await savePlantKinds({...plantKinds,[goalId]:kind});setMessage('Planta cambiada. Tu avance se conserva.');});
+  }
+  /** Como act(), pero devuelve si salió bien (para cerrar formularios solo en ese caso). */
+  async function attempt(action:()=>Promise<void>){
+    setBusy(true);setError('');
+    try{await action();return true;}catch(e){setError(errorMessage(e));setMessage(errorMessage(e),{tone:'info'});return false;}finally{setBusy(false);}
+  }
+  const canManageGoal=(goal:Goal)=>goal.group_id?rawData.roles[goal.group_id]==='admin':goal.owner_id===userId;
+  const saveGoal=(goal:Goal,title:string,amount:number,date:string)=>attempt(async()=>{
+    await optimistic(()=>patchGoal(goal.id,{title,target_amount:amount,target_date:date}),()=>rpc('update_goal',{p_goal:goal.id,p_title:title,p_amount:amount,p_date:date}));setMessage(`«${title}» se actualizó.`);
+  });
+  function restoreGoal(goal:Goal){
+    void act(async()=>{await optimistic(()=>patchGoal(goal.id,{archived:false}),()=>rpc('set_goal_archived',{p_goal:goal.id,p_archived:false}));setSelectedGoalId(goal.id);setMessage(`«${goal.title}» volvió a tu jardín.`);});
+  }
+  function archiveGoal(goal:Goal){
+    void act(async()=>{
+      setGoalSettingsId('');await optimistic(()=>patchGoal(goal.id,{archived:true}),()=>rpc('set_goal_archived',{p_goal:goal.id,p_archived:true}));
+      setMessage(`«${goal.title}» se archivó. Sus aportes se conservan.`,{tone:'info',duration:UNDO_WINDOW_MS,countdown:true,action:{label:'Deshacer',onClick:()=>restoreGoal(goal)}});
+    });
+  }
+  async function deleteGoal(goal:Goal){
+    if(!await confirm({title:'¿Eliminar esta meta?',text:`«${goal.title}» se borrará para siempre. No tiene aportes vigentes, así que tu historial de ahorro no cambia.`,confirm:'Eliminar meta',danger:true}))return;
+    await act(async()=>{
+      setGoalSettingsId('');await optimistic(()=>mutate(s=>({...s,goals:s.goals.filter(g=>g.id!==goal.id)})),()=>rpc('delete_goal',{p_goal:goal.id}));
+      if(plantKinds[goal.id]){const next={...plantKinds};delete next[goal.id];await savePlantKinds(next).catch(()=>{});}
+      setMessage('Meta eliminada.',{tone:'info'});
+    });
+  }
+  const patchPeople=(group:string,fn:(list:Member[])=>Member[])=>animate(()=>setPeopleByGroup(all=>({...all,[group]:{members:fn(all[group]?.members||[]),requests:all[group]?.requests||[]}})));
+  /** Deshacer un movimiento: se marca revertido y se descuenta de su meta al instante. */
+  const undoMovement=(id:string)=>act(async()=>{
+    await optimistic(()=>mutate(s=>{const m=s.movements.find(x=>x.id===id);if(!m||m.reversed_at)return s;
+      return {...s,movements:s.movements.map(x=>x.id===id?{...x,reversed_at:new Date().toISOString()}:x),goals:s.goals.map(g=>g.id===m.goal_id&&m.type==='savings'?{...g,current_amount:Math.max(0,Math.round((g.current_amount-m.amount)*100)/100)}:g)};}),
+      ()=>rpc('reverse_movement',{p_id:id}));
+    setMessage('Movimiento revertido; actualizamos el avance.',{tone:'info'});
+  });
+  const renameGroup=(group:Group,name:string)=>attempt(async()=>{await optimistic(()=>mutate(s=>({...s,groups:s.groups.map(g=>g.id===group.id?{...g,name}:g)})),()=>rpc('rename_group',{p_group:group.id,p_name:name}));setMessage('Nombre del grupo actualizado.');});
+  function setMemberRole(group:Group,member:Member,role:'admin'|'member'){
+    void act(async()=>{await optimistic(()=>patchPeople(group.id,list=>list.map(m=>m.user_id===member.user_id?{...m,role}:m)),()=>rpc('set_member_role',{p_group:group.id,p_user:member.user_id,p_role:role}));setMessage(role==='admin'?`${member.name} ahora también administra el grupo.`:`${member.name} ahora es miembro.`);});
+  }
+  async function removeMember(group:Group,member:Member){
+    if(!await confirm({title:`¿Quitar a ${member.name}?`,text:`Dejará de ver las metas de ${group.name}. Sus aportes se conservan y podrá volver a pedir ingreso con un código.`,confirm:'Quitar del grupo',danger:true}))return;
+    await act(async()=>{await optimistic(()=>patchPeople(group.id,list=>list.filter(m=>m.user_id!==member.user_id)),()=>rpc('remove_member',{p_group:group.id,p_user:member.user_id}));setMessage(`${member.name} ya no está en el grupo.`,{tone:'info'});});
+  }
+  async function leaveGroup(group:Group){
+    if(!await confirm({title:`¿Salir de ${group.name}?`,text:'Dejarás de ver sus metas compartidas. Tus aportes se conservan y puedes volver con un código de invitación.',confirm:'Salir del grupo'}))return;
+    await act(async()=>{await rpc('leave_group',{p_group:group.id});setGroupId(ALL_SPACES);await refresh();setMessage(`Saliste de ${group.name}.`,{tone:'info'});});
+  }
+  async function closeGroup(group:Group){
+    if(!await confirm({title:`¿Cerrar ${group.name}?`,text:'El grupo desaparecerá para todas las personas y sus metas se archivarán. Los aportes siguen en el historial de cada quien. No se puede deshacer.',confirm:'Cerrar grupo',danger:true}))return;
+    await act(async()=>{await rpc('close_group',{p_group:group.id});setGroupId(ALL_SPACES);await refresh();setMessage(`Cerraste ${group.name}.`,{tone:'info'});});
+  }
+  function cancelRequest(request:Request){
+    void act(async()=>{await optimistic(()=>mutate(s=>({...s,requests:s.requests.filter(x=>x.id!==request.id)})),()=>rpc('cancel_join_request',{p_request:request.id}));setMessage('Solicitud cancelada.',{tone:'info'});});
+  }
+  /** Corregir = guardar el registro nuevo y revertir el anterior (queda en el historial como revertido). */
+  async function saveCorrection(old:Movement,next:Movement){
+    const problem=amountProblem(next.amount);if(problem)throw new Error(problem);
+    await saveRemote(next);await rpc('reverse_movement',{p_id:old.id});await refresh();
+    setMessage('Movimiento corregido. El registro anterior queda como revertido en el historial.');
+  }
+  function openCorrection(m:Movement){
+    if(!online){setMessage('Para corregir un movimiento necesitas conexión. Puedes deshacerlo y registrarlo de nuevo.',{tone:'info'});return;}
+    setCorrecting(m);setComposerGoalId(m.goal_id||'');setComposerDraft(null);setComposer(true);
+  }
+  async function saveName(name:string){
+    if(!profile)return false;
+    return attempt(async()=>{await updateProfile({...profile,display_name:name});setMessage('Nombre actualizado.');});
+  }
+  async function savePassword(password:string){
+    return attempt(async()=>{const {error}=await requireDatabase().auth.updateUser({password});if(error)throw error;setMessage('Contraseña actualizada.');});
   }
   async function finishProfile(e:React.FormEvent){
     e.preventDefault();if(!consent)return;
@@ -258,9 +367,13 @@ function Workspace({session}:{session:Session}) {
     });
   }
   async function saveMovement(m:Movement,phrase:string,originalCategory:string){
+    const problem=amountProblem(m.amount);if(problem)throw new Error(problem);
     if(!online){writeQueue([...readQueue(),m]);setMessage('Guardado como pendiente en este dispositivo. Se sincronizará al recuperar conexión.',{type:m.type,tone:'info'});return;}
     const target=m.type==='savings'?data.goals.find(g=>g.id===m.goal_id):undefined;
     await saveRemote(m);
+    // Se ve al instante (movimiento y avance de la meta); el servidor confirma por detrás.
+    // Idempotente: si la recarga del servidor ya trajo este movimiento, no se vuelve a sumar.
+    mutate(s=>s.movements.some(x=>x.id===m.id)?s:({...s,movements:[{...m,created_at:new Date().toISOString()},...s.movements],goals:s.goals.map(g=>g.id===m.goal_id&&m.type==='savings'?{...g,current_amount:Math.round((g.current_amount+m.amount)*100)/100}:g)}));
     vibrate('success');
     let bloomed=false;
     if(target&&target.target_amount>0){
@@ -274,13 +387,13 @@ function Workspace({session}:{session:Session}) {
     const savedText=m.type==='savings'?`${soles(m.amount)} sumados a ${target?.title}.`:`${movementNames[m.type]} de ${soles(m.amount)} guardado.`;
     // HU-17: «Deshacer» durante 10 s con una barra que se vacía; después sigue disponible en Movimientos.
     setMessage(bloomed?`¡${target?.title} floreció! ${savedText}`:savedText,
-      {type:m.type,tone:bloomed?'celebration':'success',duration:UNDO_WINDOW_MS,countdown:true,action:{label:'Deshacer',onClick:()=>act(async()=>{await rpc('reverse_movement',{p_id:m.id});await refresh();setMessage('Movimiento revertido; actualizamos el avance.',{tone:'info'});})}});
+      {type:m.type,tone:bloomed?'celebration':'success',duration:UNDO_WINDOW_MS,countdown:true,action:{label:'Deshacer',onClick:()=>void undoMovement(m.id)}});
     if(profile&&phrase&&m.type==='expense'&&originalCategory!==m.category){
       const key=learningKey(phrase);const previous=profile.learned_categories[key];
       try{await updateProfile({...profile,learned_categories:{...profile.learned_categories,[key]:{category:m.category,count:previous?.category===m.category?previous.count+1:1}}});}
       catch{setNotice('El movimiento se guardó; no se pudo actualizar la categoría aprendida.');}
     }
-    await refresh();
+    sync();
     if(m.type==='savings'&&m.goal_id)setWatering({goalId:m.goal_id,nonce:Date.now()});
   }
   async function askAssistant(e:React.FormEvent){e.preventDefault();await askQuestion(assistantQuestion);}
@@ -306,7 +419,7 @@ function Workspace({session}:{session:Session}) {
     <header className="av-header safe-top"><a className="av-brand" href="#av-main" translate="no"><BrandIcon/> Alcancía Viva</a>
       <div className="av-header-actions">
         <p className="av-connection" role="status" data-state={!online?'offline':connected?'online':'connecting'}><span className="av-connection-dot" aria-hidden="true"/><span className="av-connection-text">{!online?'Sin conexión':connected?'Conectado en tiempo real':'Conectando actualizaciones…'}</span></p>
-        <button type="button" className="av-secondary av-with-icon av-header-voice" data-voice-entry onClick={()=>setVoiceOpen(true)}><Mic size={24} aria-hidden="true"/>Hablar</button>
+        <button type="button" className="av-secondary av-with-icon av-header-voice" data-voice-entry onClick={()=>{primeAudio();setVoiceOpen(true);}}><Mic size={24} aria-hidden="true"/>Hablar</button>
         <span className="av-user"><UserAvatar name={profile.display_name}/><span className="av-user-name">{profile.display_name}</span></span>
         <button type="button" className="av-secondary av-icon-button av-header-settings" aria-label="Preferencias" aria-current={tab==='settings'?'page':undefined} onClick={()=>goTo('settings')}><Settings size={24} aria-hidden="true"/></button>
         <button type="button" className="av-secondary av-header-logout" onClick={signOut}>Salir</button>
@@ -319,36 +432,39 @@ function Workspace({session}:{session:Session}) {
       {pending>0&&<p role="status">{pending} movimiento(s) pendiente(s). <button className="av-link" disabled={!online||busy} onClick={()=>act(flushQueue)}>Reintentar sincronización</button></p>}
       <div className="av-tab-panel" key={tab}>
       {tab==='garden'&&<>
-        <Garden goals={selectedGoals} groups={data.groups} selectedId={selectedGoalId} today={today} prefs={prefs} onSelect={setSelectedGoalId} onContribute={openComposer} onCreate={()=>setTab('goals')} watering={watering} celebration={celebration}/>
+        <Garden goals={selectedGoals} groups={data.groups} selectedId={selectedGoalId} today={today} prefs={prefs} onSelect={id=>animate(()=>setSelectedGoalId(id))} onContribute={openComposer} onCreate={()=>setTab('goals')} watering={watering} celebration={celebration} plantKinds={plantKinds} onPlantChange={(goalId,kind)=>void choosePlant(goalId,kind)} canManage={canManageGoal} onOptions={goal=>setGoalSettingsId(goal.id)}/>
         <div className="av-stats"><section className="av-card"><h2>Avance conjunto de tus metas</h2><strong>{soles(savedShown)}</strong><p>{selectedGoals.length} meta(s){isOverview?' personales y compartidas':selectedGroup?` de ${selectedGroup.name}`:' personales'}. Cada planta crece según su propio avance.</p></section>
           <section className="av-card av-budget-card"><h2>Tu presupuesto semanal</h2><p>Solo tus gastos de esta semana, de lunes a hoy.</p><BudgetGauge spent={spent} budget={prefs.weeklyBudget} movements={mine} today={today}/>
             <p>{spent>prefs.weeklyBudget?'Superaste el presupuesto que elegiste. Puedes revisar tus categorías y ajustar el próximo paso.':'Puedes revisar tus movimientos cuando lo necesites.'}</p></section></div>
       </>}
       {tab==='goals'&&<><h1>{selectedGroup?`Metas de ${selectedGroup.name}`:'Mis metas'}</h1><p>Un ahorro se suma únicamente a la meta que confirmes.</p>
         {isOverview&&<p>Al crear aquí una meta será personal. Para crear una meta compartida, elige su grupo en «Tu espacio».</p>}
-        {(!selectedGroup||groupAdmin)&&<GoalForm groupId={selectedGroup?.id||''} busy={busy} onCreate={(title,amount,date)=>act(async()=>{const id=await rpc<string>('create_goal',{p_title:title,p_amount:amount,p_date:date,p_group:selectedGroup?.id||null});await refresh();setSelectedGoalId(id);setMessage('Meta creada. Plantamos una nueva maceta; el ahorro de tus otras metas se conserva.');})}/>}
+        {(!selectedGroup||groupAdmin)&&<GoalForm groupId={selectedGroup?.id||''} busy={busy} onCreate={(title,amount,date,kind)=>act(async()=>{const problem=amountProblem(amount);if(problem)throw new Error(problem);const id=await rpc<string>('create_goal',{p_title:title,p_amount:amount,p_date:date,p_group:selectedGroup?.id||null});if(kind!=='cosmos')await savePlantKinds({...plantKinds,[id]:kind}).catch(()=>{});await refresh();setSelectedGoalId(id);setMessage('Meta creada. Plantamos una nueva maceta; el ahorro de tus otras metas se conserva.');})}/>}
         {!!selectedGroup&&!groupAdmin&&<p>El administrador crea las metas. Todos los miembros pueden aportar.</p>}
-        <div className="av-cards">{selectedGoals.map(g=><GoalCard key={g.id} goal={g} groups={data.groups} today={today} onView={()=>{setSelectedGoalId(g.id);setTab('garden');}} onContribute={()=>openComposer(g)}/>)}</div>
+        <div className="av-cards">{selectedGoals.map(g=><GoalCard key={g.id} goal={g} kind={plantKinds[g.id]} onOptions={canManageGoal(g)?()=>setGoalSettingsId(g.id):undefined} groups={data.groups} today={today} onView={()=>{animate(()=>{setSelectedGoalId(g.id);setTab('garden');},'back');window.scrollTo({top:0});}} onContribute={()=>openComposer(g)}/>)}</div>
+        <ArchivedGoals goals={archivedGoals} busy={busy} canManage={canManageGoal} onRestore={restoreGoal} onDelete={goal=>void deleteGoal(goal)}/>
         {!selectedGoals.length&&<EmptyState title="Planta tu primera meta" text={!selectedGroup||groupAdmin?'Dale un nombre, un monto y una fecha. Verás crecer su maceta con cada aporte.':'Cuando el administrador cree una meta compartida, aparecerá aquí para que aportes.'}
           action={!selectedGroup||groupAdmin?{label:'Crear una meta',icon:<Target size={24} aria-hidden="true"/>,onClick:()=>{const form=document.getElementById('av-goal-form') as HTMLDetailsElement|null;if(form){form.open=true;form.querySelector('input')?.focus();}}}:undefined}/>}</>}
       {tab==='groups'&&<><h1>Ahorrar también es compartir</h1><p>Puedes pertenecer a varios grupos. Tus gastos personales se mantienen privados.</p>
         <GroupForms busy={busy} onCreate={name=>act(async()=>{const r=await rpc<{group_id:string}>('create_group',{p_name:name});await refresh();setGroupId(r.group_id);setMessage('Grupo creado. Ya puedes crear metas e invitar.');})}
           onJoin={code=>act(async()=>{const r=await rpc<{group_name:string;status:string}>('request_group_access',{p_code:code});await refresh();setMessage(`${r.group_name}: ${statusNames[r.status]||'Ya eres miembro'}.`);})}/>
-        <section className="av-card"><h2>Mis solicitudes</h2>{!data.requests.length?<p>No tienes solicitudes.</p>:data.requests.map(r=><p key={r.id}>{r.name} · <strong>{statusNames[r.status]}</strong></p>)}</section>
+        <section className="av-card"><h2>Mis solicitudes</h2>{!data.requests.length?<p>No tienes solicitudes.</p>:<ul className="av-request-list">{data.requests.map(r=><li key={r.id} className="av-request"><span>{r.name} · <strong>{statusNames[r.status]}</strong></span>{r.status==='pending'&&<button type="button" className="av-secondary" disabled={busy} onClick={()=>cancelRequest(r)} aria-label={`Cancelar la solicitud a ${r.name}`}>Cancelar solicitud</button>}</li>)}</ul>}</section>
         <h2>Grupos a los que perteneces</h2>{data.groups.length?<div className="av-cards">{data.groups.map(g=><GroupCard key={g.id} group={g} role={data.roles[g.id]} members={peopleByGroup[g.id]?.members||[]} goals={data.goals.filter(goal=>goal.group_id===g.id)} selected={g.id===groupId} onSelect={()=>setGroupId(g.id)}/>)}</div>:
           <EmptyState headingLevel={3} title="Todavía no compartes un jardín" text="Crea un grupo para ahorrar con tu familia o amigos, o pide ingreso con un código de invitación." action={{label:'Crear un grupo',icon:<Users size={24} aria-hidden="true"/>,onClick:()=>document.getElementById('av-group-name')?.focus()}}/>}
         {selectedGroup&&<section className="av-card"><h2>{selectedGroup.name}</h2><p>{people.members.length} integrante(s) · varias metas compartidas</p>
-          <ul>{people.members.map(m=><li key={m.user_id}>{m.name} · {m.role==='admin'?'Administrador':'Miembro'}</li>)}</ul>
+          <GroupManager key={selectedGroup.id} group={selectedGroup} members={people.members} userId={userId} admin={groupAdmin} busy={busy}
+            onRename={name=>renameGroup(selectedGroup,name)} onRole={(member,role)=>setMemberRole(selectedGroup,member,role)} onRemove={member=>void removeMember(selectedGroup,member)}
+            onLeave={()=>void leaveGroup(selectedGroup)} onClose={()=>void closeGroup(selectedGroup)}/>
           {groupAdmin&&<><h3>Invitaciones</h3><p>Compartir el código no concede acceso: debes aprobar la solicitud.</p>
             {data.invitations.filter(i=>i.group_id===groupId&&new Date(i.expires_at)>new Date()).map(i=><div className="av-invitation" key={i.id}><label>Código de invitación<input readOnly value={i.code} spellCheck={false} translate="no"/></label>
               <button className="av-secondary" onClick={()=>act(async()=>{await navigator.clipboard.writeText(`${location.origin}${location.pathname}?invite=${i.code}`);setMessage('Enlace copiado.');})}>Copiar enlace</button>
-              <button className="av-secondary" disabled={busy} onClick={()=>{if(window.confirm('¿Revocar este código? Quien lo tenga ya no podrá pedir ingreso; puedes crear uno nuevo cuando quieras.'))void act(async()=>{await rpc('revoke_group_invitation',{p_invitation:i.id});await refresh();setMessage('Invitación revocada.');});}}>Revocar código</button></div>)}
+              <button className="av-secondary" disabled={busy} onClick={async()=>{if(await confirm({title:'¿Revocar este código?',text:'Quien lo tenga ya no podrá pedir ingreso; puedes crear uno nuevo cuando quieras.',confirm:'Revocar código',danger:true}))void act(async()=>{await rpc('revoke_group_invitation',{p_invitation:i.id});await refresh();setMessage('Invitación revocada.');});}}>Revocar código</button></div>)}
             <button className="av-secondary" disabled={busy} onClick={()=>act(async()=>{await rpc('create_group_invitation',{p_group:groupId});await refresh();setMessage('Nueva invitación creada.');})}>Crear nueva invitación</button>
             <h3>Solicitudes de ingreso{people.requests.length>0&&<span className="av-count-badge">{people.requests.length}</span>}</h3>{!people.requests.length?<p>No hay solicitudes pendientes.</p>:people.requests.map(r=><div className="av-request" key={r.id}><strong>{r.name}</strong>
               <button disabled={busy} onClick={()=>act(async()=>{await rpc('decide_group_request',{p_request:r.id,p_approve:true});await refresh();setMessage('Solicitud aprobada.');})}>Aprobar</button>
-              <button className="av-secondary" disabled={busy} onClick={()=>{if(window.confirm(`¿Rechazar la solicitud de ${r.name}? Podrá volver a pedir ingreso con un código.`))void act(async()=>{await rpc('decide_group_request',{p_request:r.id,p_approve:false});await refresh();setMessage('Solicitud rechazada.');});}}>Rechazar</button></div>)}</>}
+              <button className="av-secondary" disabled={busy} onClick={async()=>{if(await confirm({title:`¿Rechazar la solicitud de ${r.name}?`,text:'Podrá volver a pedir ingreso con un código.',confirm:'Rechazar',danger:true}))void act(async()=>{await rpc('decide_group_request',{p_request:r.id,p_approve:false});await refresh();setMessage('Solicitud rechazada.');});}}>Rechazar</button></div>)}</>}
         </section>}</>}
-      {tab==='history'&&<MovementHistory snapshot={data} profile={profile} scope={groupId} busy={busy} onRegister={()=>openComposer()} onUndo={id=>act(async()=>{await rpc('reverse_movement',{p_id:id});await refresh();setMessage('Movimiento revertido; actualizamos el avance.');})}/>}
+      {tab==='history'&&<MovementHistory snapshot={rawData} onCorrect={openCorrection} online={online} profile={profile} scope={groupId} busy={busy} onRegister={()=>openComposer()} onUndo={undoMovement}/>}
       {tab==='assistant'&&<><h1>Un paso a la vez</h1><p>Soy el asistente de IA de Alcancía Viva. Puedo ayudarte a comprender tus registros; las propuestas no mueven dinero ni crean aportes.</p>
         {!chat.length&&<EmptyState title="Pregunta lo que quieras entender" text="Por ejemplo: «¿En qué gasté más esta semana?» o «¿Cuánto me falta para mi laptop?». Puedes escribir o dictar." action={{label:'Escribir una pregunta',icon:<MessageCircle size={24} aria-hidden="true"/>,onClick:()=>document.getElementById('av-assistant-question')?.focus()}}/>}
         <div role="log" aria-label="Conversación con el asistente" aria-live="polite">{chat.map((item,i)=><section className="av-card" key={i}><p><strong>Tú:</strong> {item.question}</p><AssistantAnswer answer={item.answer} highlight={!reducedMotion}/></section>)}</div>
@@ -362,46 +478,49 @@ function Workspace({session}:{session:Session}) {
         <div className="av-rate"><label>Velocidad de la voz<select value={String(prefs.speechRate)} disabled={busy} onChange={e=>{const speechRate=Number(e.target.value);act(async()=>{await updateProfile({...profile,preferences:{...prefs,speechRate} as Profile['preferences']});setMessage('Velocidad de la voz guardada.');});}}>
           {SPEECH_RATES.map(rate=><option key={rate} value={String(rate)}>{rate===1?'Normal (1×)':`${rate.toLocaleString('es-PE')}×${rate<1?' (más lenta)':' (más rápida)'}`}</option>)}</select></label>
           <button type="button" className="av-secondary av-with-icon" disabled={!SpeechService.isSynthesisSupported()} onClick={()=>SpeechService.speak('Así sonará Alcancía Viva cuando te lea una respuesta.',prefs.speechRate)}><Volume2 size={24} aria-hidden="true"/>Probar voz</button></div>
-        <label>Presupuesto semanal en soles<input type="number" inputMode="decimal" autoComplete="off" min="1" step="0.01" defaultValue={prefs.weeklyBudget} onBlur={e=>{const amount=Number(e.target.value);if(amount>0)act(async()=>{await updateProfile({...profile,preferences:{...prefs,weeklyBudget:amount}});setMessage('Presupuesto actualizado.');});}}/></label>
+        <label>Presupuesto semanal en soles<input type="number" inputMode="decimal" autoComplete="off" min="1" max="999999.99" step="0.01" defaultValue={prefs.weeklyBudget} onBlur={e=>{const amount=Number(e.target.value);if(amount>0&&amount<MAX_AMOUNT)act(async()=>{await updateProfile({...profile,preferences:{...prefs,weeklyBudget:amount}});setMessage('Presupuesto actualizado.');});}}/></label>
         <p>Las correcciones de categoría se recuerdan. Tras tres correcciones iguales para la misma frase, se proponen en futuros registros.</p>
-        <button className="av-secondary" disabled={busy} onClick={()=>{if(window.confirm('¿Reiniciar las categorías aprendidas? Tus movimientos no cambian; solo se olvidan las sugerencias.'))void act(async()=>{await updateProfile({...profile,learned_categories:{}});setMessage('Aprendizaje de categorías reiniciado.');});}}>Reiniciar categorías aprendidas</button>
+        <button className="av-secondary" disabled={busy} onClick={async()=>{if(await confirm({title:'¿Reiniciar las categorías aprendidas?',text:'Tus movimientos no cambian; solo se olvidan las sugerencias.',confirm:'Reiniciar'}))void act(async()=>{await updateProfile({...profile,learned_categories:{}});setMessage('Aprendizaje de categorías reiniciado.');});}}>Reiniciar categorías aprendidas</button>
         <button className="av-secondary" onClick={()=>{const blob=new Blob([JSON.stringify({profile,movements:mine,goals:data.goals.filter(g=>g.owner_id===userId)},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='alcancia-viva-mis-datos.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}}>Descargar mis datos</button>
         <details><summary>Ayuda y privacidad</summary><p>Para registrar, elige gasto, ingreso o ahorro. Un ahorro requiere meta. Para compartir, crea un grupo o solicita ingreso con un código y espera aprobación. Puedes usar texto sin micrófono; todas las acciones son accesibles mediante teclado. Usamos datos de práctica. Si consultas a la IA, se envía tu pregunta y un resumen de tus registros a Groq.</p></details>
       </section>
-      <section className="av-card"><h2>Tu sesión</h2><p>Sesión iniciada como {profile.display_name}.</p>
-        <button type="button" className="av-secondary av-with-icon" onClick={signOut}><LogOut size={24} aria-hidden="true"/>Cerrar sesión</button></section></>}
+      <AccountSettings name={profile.display_name} email={session.user.email} busy={busy} onName={saveName} onPassword={savePassword} onSignOut={signOut}/></>}
       </div>
     </main></div>
     <Toast toast={toast} onDismiss={()=>setToast(null)}/>
-    <button type="button" className="av-secondary av-fab-voice" aria-label="Hablar" data-voice-entry onClick={()=>setVoiceOpen(true)}><Mic size={24} aria-hidden="true"/></button>
+    {(()=>{const goal=data.goals.find(g=>g.id===goalSettingsId);return goal&&canManageGoal(goal)?<GoalSettings key={goal.id} goal={goal} kind={plantKinds[goal.id]||'cosmos'} busy={busy}
+      onSave={(title,amount,date)=>saveGoal(goal,title,amount,date)} onPlantChange={kind=>void choosePlant(goal.id,kind)}
+      onArchive={()=>archiveGoal(goal)} onDelete={()=>void deleteGoal(goal)} onClose={()=>setGoalSettingsId('')}/>:null;})()}
+    {confirmDialog}
+    <button type="button" className="av-secondary av-fab-voice" aria-label="Hablar" data-voice-entry onClick={()=>{primeAudio();setVoiceOpen(true);}}><Mic size={24} aria-hidden="true"/></button>
     <button type="button" className="av-fab" aria-label="Registrar movimiento" aria-keyshortcuts="n" onClick={()=>openComposer()}><Plus size={24} aria-hidden="true"/></button>
-    {composer&&<MovementComposer data={data} profile={profile} groupId={selectedGroup?.id||''} initialGoalId={composerGoalId} initialDraft={composerDraft} audio={prefs.audio} onClose={()=>{setComposer(false);setComposerDraft(null);}} onSave={saveMovement}/>}
+    {composer&&<MovementComposer data={data} profile={profile} groupId={selectedGroup?.id||''} initialGoalId={composerGoalId} initialDraft={composerDraft} correction={correcting} audio={prefs.audio} onClose={()=>{setComposer(false);setComposerDraft(null);setCorrecting(null);}} onSave={correcting?(m=>saveCorrection(correcting,m)):saveMovement}/>}
     {voiceOpen&&<VoiceSheet reduced={reducedMotion} goals={data.goals} movements={mine} profile={profile} today={today} weeklyBudget={prefs.weeklyBudget} audio={prefs.audio}
       onNavigate={tab=>goTo(tab)} onAsk={question=>{goTo('assistant');void askQuestion(question);}} onSave={saveMovement}
       onOpenComposer={draft=>{setVoiceOpen(false);openComposer(undefined,draft);}} onClose={()=>setVoiceOpen(false)}/>}
   </div>;
 }
 
-function GoalForm({groupId,busy,onCreate}:{groupId:string;busy:boolean;onCreate:(title:string,amount:number,date:string)=>Promise<void>}) {
-  return <details className="av-card" id="av-goal-form" key={groupId}><summary>Crear una meta</summary><form onSubmit={async e=>{e.preventDefault();const form=e.currentTarget;const f=new FormData(form);await onCreate(String(f.get('title')),Number(f.get('amount')),String(f.get('date')));}}>
-    <label>Nombre de la meta<input name="title" required maxLength={100} autoComplete="off"/></label><label>Monto objetivo (S/)<input name="amount" type="number" inputMode="decimal" autoComplete="off" min="0.01" step="0.01" required/></label><label>Fecha objetivo<input name="date" type="date" min={localDate()} required/></label><button disabled={busy}>Crear meta</button></form></details>;
+function GoalForm({groupId,busy,onCreate}:{groupId:string;busy:boolean;onCreate:(title:string,amount:number,date:string,kind:PlantKind)=>Promise<void>}) {
+  return <details className="av-card" id="av-goal-form" key={groupId}><summary>Crear una meta</summary><form onSubmit={async e=>{e.preventDefault();const form=e.currentTarget;const f=new FormData(form);const kind=String(f.get('plant')||'cosmos');await onCreate(String(f.get('title')),Number(f.get('amount')),String(f.get('date')),isPlantKind(kind)?kind:'cosmos');}}>
+    <label>Nombre de la meta<input name="title" required maxLength={100} autoComplete="off"/></label><label>Monto objetivo (S/)<input name="amount" type="number" inputMode="decimal" autoComplete="off" min="0.01" max="999999.99" step="0.01" required/></label><label>Fecha objetivo<input name="date" type="date" min={localDate()} required/></label><PlantPicker name="plant" defaultValue="cosmos"/><button disabled={busy}>Crear meta</button></form></details>;
 }
 function GroupForms({busy,onCreate,onJoin}:{busy:boolean;onCreate:(name:string)=>Promise<void>;onJoin:(code:string)=>Promise<void>}) {
   return <div className="av-cards"><form className="av-card" onSubmit={e=>{e.preventDefault();onCreate(String(new FormData(e.currentTarget).get('name')));}}><h2>Crear un grupo</h2><label>Nombre del grupo<input id="av-group-name" name="name" required maxLength={100} autoComplete="off"/></label><button disabled={busy}>Crear grupo</button></form>
     <form className="av-card" onSubmit={e=>{e.preventDefault();onJoin(String(new FormData(e.currentTarget).get('code')));}}><h2>Unirme a un grupo</h2><label>Código de invitación<input name="code" required autoComplete="off" spellCheck={false} autoCapitalize="characters" defaultValue={new URLSearchParams(location.search).get('invite')||''}/></label><button disabled={busy}>Solicitar ingreso</button></form></div>;
 }
 
-function MovementComposer({data,profile,groupId,initialGoalId,initialDraft=null,audio,onClose,onSave}:{data:Snapshot;profile:Profile;groupId:string;initialGoalId:string;initialDraft?:VoiceDraft|null;audio:boolean;onClose:()=>void;onSave:(m:Movement,phrase:string,category:string)=>Promise<void>}) {
+function MovementComposer({data,profile,groupId,initialGoalId,initialDraft=null,correction=null,audio,onClose,onSave}:{data:Snapshot;profile:Profile;groupId:string;initialGoalId:string;initialDraft?:VoiceDraft|null;correction?:Movement|null;audio:boolean;onClose:()=>void;onSave:(m:Movement,phrase:string,category:string)=>Promise<void>}) {
   const dialog=useRef<HTMLDialogElement>(null),phraseInput=useRef<HTMLTextAreaElement>(null);
   const previousFocus=useRef(document.activeElement as HTMLElement|null);
   const id=useRef(crypto.randomUUID()),processing=useRef(false);
   const preset=movementPreset(data.goals,groupId,initialGoalId);
   // Borrador que llega desde la voz («Prefiero escribir», «No, corregir» o repreguntas agotadas).
-  const draftGoal=initialDraft?.goalId?data.goals.find(g=>g.id===initialDraft.goalId):undefined;
-  const [phrase,setPhrase]=useState(initialDraft?.text||''),[type,setType]=useState<Movement['type']|''>(initialDraft?initialDraft.type:preset.type),[amount,setAmount]=useState(initialDraft?.amount?String(initialDraft.amount):''),[category,setCategory]=useState(initialDraft?.category||'');
-  const [goalId,setGoalId]=useState(draftGoal?draftGoal.id:preset.goalId),[destination,setDestination]=useState(draftGoal?draftGoal.group_id||'':preset.destination),[source,setSource]=useState<Movement['source']>(initialDraft?'voice':'manual');
-  const [error,setError]=useState(''),[info,setInfo]=useState(initialDraft?'Revisa lo que entendí por voz y completa lo que falte antes de guardar.':''),[busy,setBusy]=useState(false),[originalCategory,setOriginalCategory]=useState('');
-  const [date,setDate]=useState(localDate());
+  const draftGoal=initialDraft?.goalId?data.goals.find(g=>g.id===initialDraft.goalId):correction?.goal_id?data.goals.find(g=>g.id===correction.goal_id):undefined;
+  const [phrase,setPhrase]=useState(correction?.description??initialDraft?.text??''),[type,setType]=useState<Movement['type']|''>(correction?correction.type:initialDraft?initialDraft.type:preset.type),[amount,setAmount]=useState(correction?String(correction.amount):initialDraft?.amount?String(initialDraft.amount):''),[category,setCategory]=useState(correction?.category||initialDraft?.category||'');
+  const [goalId,setGoalId]=useState(draftGoal?draftGoal.id:preset.goalId),[destination,setDestination]=useState(draftGoal?draftGoal.group_id||'':preset.destination),[source,setSource]=useState<Movement['source']>(correction?.source||(initialDraft?'voice':'manual'));
+  const [error,setError]=useState(''),[info,setInfo]=useState(correction?'Cambia lo que necesites. Al guardar, el registro anterior queda como revertido en el historial.':initialDraft?'Revisa lo que entendí por voz y completa lo que falte antes de guardar.':''),[busy,setBusy]=useState(false),[originalCategory,setOriginalCategory]=useState('');
+  const [date,setDate]=useState(correction?.occurred_on||localDate());
   const dictation=useDictation({onText:setPhrase,onDone:text=>applyInterpretation(text,true),maxLength:500,messages:movementDictation});
   const listening=dictation.listening;
   const sheetDrag=useSheetDrag(dialog,{onClose,disabled:busy});
@@ -426,13 +545,14 @@ function MovementComposer({data,profile,groupId,initialGoalId,initialDraft=null,
   }
   function voice(){
     if(listening){dictation.stop();phraseInput.current?.focus();return;}
-    if(!dictation.supported){setError('Este navegador no reconoce voz. Puedes escribir o completar los campos.');phraseInput.current?.focus();return;}
-    SpeechService.stopSpeaking();setError('');setInfo('');dictation.start('');
+    if(!dictation.supported){setError('Este navegador no permite usar el micrófono aquí. Puedes escribir o completar los campos.');phraseInput.current?.focus();return;}
+    primeAudio();SpeechService.stopSpeaking();setError('');setInfo('');dictation.start('');
   }
   async function submit(e:React.FormEvent){
     e.preventDefault();setError('');
     const value=Number(amount);
     if(!type||!Number.isFinite(value)||value<=0){setError('Elige el tipo e ingresa un monto mayor que cero.');return;}
+    if(value>=MAX_AMOUNT){setError(amountTooLarge);return;}
     if(type==='savings'&&!data.goals.some(g=>g.id===goalId&&g.group_id===(destination||null))){setError('Selecciona el espacio y la meta a la que aportarás.');return;}
     if(type!=='savings'&&!category.trim()){setError('Indica la categoría.');return;}
     setBusy(true);
@@ -446,18 +566,18 @@ function MovementComposer({data,profile,groupId,initialGoalId,initialDraft=null,
   const goals=data.goals.filter(g=>g.group_id===(destination||null));
   return <dialog ref={dialog} className="av-dialog" aria-labelledby="movement-title" onCancel={e=>{if(busy)e.preventDefault();else onClose();}}>
     <div className="av-sheet-grip" {...sheetDrag}><span className="av-sheet-handle" aria-hidden="true"/>
-      <div className="av-dialog-title"><h2 id="movement-title">Registrar movimiento</h2><button type="button" className="av-secondary" onClick={onClose} disabled={busy} aria-label="Cerrar registro">Cerrar</button></div></div>
+      <div className="av-dialog-title"><h2 id="movement-title">{correction?'Corregir movimiento':'Registrar movimiento'}</h2><button type="button" className="av-secondary" onClick={onClose} disabled={busy} aria-label="Cerrar registro">Cerrar</button></div></div>
     <p>Puedes hablar, escribir o completar los datos. Confirma el destino antes de guardar.</p>
     <label>Describe tu movimiento<textarea ref={phraseInput} value={phrase} onChange={e=>setPhrase(e.target.value)} placeholder="Ahorré 100 soles para mi laptop…" maxLength={500}/></label>
     <div className="av-actions"><button type="button" className="av-secondary" aria-pressed={listening} onClick={voice} disabled={busy}>{listening?'Detener micrófono':'Dictar movimiento'}</button><button type="button" disabled={busy||!phrase.trim()} onClick={interpret}>{busy?'Interpretando…':'Interpretar texto'}</button></div>
     <p role="status" aria-live="polite">{listening?dictation.status:(info||dictation.status)}</p>
     <form onSubmit={submit}>
       <label>Tipo de movimiento<select value={type} required onChange={e=>setType(e.target.value as Movement['type'])}><option value="">Selecciona el tipo</option><option value="expense">Gasto</option><option value="income">Ingreso</option><option value="savings">Ahorro para una meta</option></select></label>
-      <div className="av-fields"><label>Monto en soles<input type="number" inputMode="decimal" autoComplete="off" min="0.01" step="0.01" required value={amount} onChange={e=>setAmount(e.target.value)}/></label><label>Fecha<input type="date" required value={date} onChange={e=>setDate(e.target.value)}/></label></div>
+      <div className="av-fields"><label>Monto en soles<input type="number" inputMode="decimal" autoComplete="off" min="0.01" max="999999.99" step="0.01" required value={amount} onChange={e=>setAmount(e.target.value)}/></label><label>Fecha<input type="date" required value={date} onChange={e=>setDate(e.target.value)}/></label></div>
       {type==='savings'?<><label>Espacio del ahorro<select value={destination} onChange={e=>{setDestination(e.target.value);setGoalId('');}}><option value="">Personal</option>{data.groups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select></label><label>Meta de destino<select value={goalId} required onChange={e=>setGoalId(e.target.value)}><option value="">¿A qué meta quieres aportar?</option>{goals.map(g=><option value={g.id} key={g.id}>{g.title}</option>)}</select></label>{!goals.length&&<p>Crea una meta en este espacio antes de registrar el ahorro.</p>}</>:<label>Categoría<input list="av-categories" required autoComplete="off" value={category} maxLength={100} onChange={e=>setCategory(e.target.value)}/><datalist id="av-categories">{['Alimentación','Transporte','Educación','Salud','Trabajo','Ocio','Servicios','Otros'].map(c=><option value={c} key={c}/>)}</datalist></label>}
       {error&&<p role="alert" className="av-error">{error}</p>}
       <p className={`av-review ${type?`av-tone-${MOVEMENT_META[type].tone}`:''}`}>{type&&<MovementTypeIcon type={type} size={20}/>}<span>{type?movementNames[type]:'Movimiento'} · {soles(Number(amount)||0)} · {type==='savings'?(data.goals.find(g=>g.id===goalId)?.title||'Falta elegir una meta'):(category||'Falta categoría')}</span></p>
-      <button disabled={busy||listening}>{busy?'Procesando…':'Confirmar y guardar'}</button>
+      <button disabled={busy||listening}>{busy?'Procesando…':correction?'Guardar corrección':'Confirmar y guardar'}</button>
     </form>
   </dialog>;
 }

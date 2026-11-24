@@ -102,6 +102,7 @@ const check = async (name, fn) => { await fn(); console.log('✓', name); };
     await page.waitForTimeout(350);
     assert.match(await pot.evaluate((el) => getComputedStyle(el).transform), /^matrix\(1, 0, 0, 1, 0, -5\)$/);
     await page.getByRole('button', { name: /^Metas/ }).filter({ visible: true }).first().click();
+    await page.locator('.av-nav-item[data-tab="goals"][aria-current="page"]').first().waitFor({ state: 'attached' });
     assert.equal(await page.locator('.av-tab-panel').evaluate((el) => getComputedStyle(el).animationName), 'av-tab-fade');
     await context.close();
   });

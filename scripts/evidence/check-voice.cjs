@@ -86,7 +86,7 @@ const check = async (name, fn) => { await fn(); console.log('✓', name); };
     await page.getByRole('button', { name: 'Hablar' }).click();
     await say(page, 'ir a metas');
     await sheet(page).waitFor({ state: 'detached' });
-    assert.equal(await page.getByRole('button', { name: 'Metas', exact: true }).getAttribute('aria-current'), 'page');
+    await page.locator('.av-nav-item[data-tab="goals"][aria-current="page"]').first().waitFor({ state: 'attached' });
     assert.ok((await page.evaluate(() => window.__spoken)).includes('Metas'));
     await page.close();
   });
@@ -109,7 +109,7 @@ const check = async (name, fn) => { await fn(); console.log('✓', name); };
     await say(page, 'pregunta: cómo puedo ahorrar más');
     await sheet(page).waitFor({ state: 'detached' });
     await page.getByText('Separa una parte fija cada semana').waitFor();
-    assert.equal(await page.getByRole('button', { name: /^Asistente/ }).filter({ visible: true }).first().getAttribute('aria-current'), 'page');
+    await page.locator('.av-nav-item[data-tab="assistant"][aria-current="page"]').first().waitFor({ state: 'attached' });
     await page.evaluate(() => { window.__speechMs = 3000; });
     await page.getByRole('button', { name: 'Escuchar respuesta' }).click();
     await page.locator('.av-spoken-word').waitFor();
@@ -129,8 +129,8 @@ const check = async (name, fn) => { await fn(); console.log('✓', name); };
     await page.close();
   });
 
-  await check('sin SpeechRecognition (Firefox, algunos iOS): el panel lo explica y ofrece escribir', async () => {
-    const { page } = await open({ width: 375, voice: { noRecognition: true } });
+  await check('sin reconocimiento ni grabación: el panel lo explica y ofrece escribir', async () => {
+    const { page } = await open({ width: 375, voice: { noRecognition: true, noRecorder: true } });
     await page.getByRole('button', { name: 'Hablar' }).filter({ visible: true }).click();
     await page.getByText('Este navegador no admite voz; escribe tu movimiento.').waitFor();
     await shot(page, 'voz-sin-soporte-375.png');

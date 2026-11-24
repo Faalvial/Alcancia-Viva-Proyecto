@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Search } from 'lucide-react';
+import { Pencil, Plus, Search } from 'lucide-react';
 import { rpc } from './client';
-import type { Member, Profile, Snapshot } from './client';
+import type { Member, Movement, Profile, Snapshot } from './client';
 import { localDate, soles } from './domain';
 import { filterMovements, groupByDay } from './timeline';
 import type { TypeFilter } from './timeline';
@@ -12,7 +12,7 @@ import type { ContributorDirectory } from './history';
 import './history.css';
 
 const filters:{id:TypeFilter;label:string}[]=[{id:'all',label:'Todos'},{id:'expense',label:'Gastos'},{id:'income',label:'Ingresos'},{id:'savings',label:'Ahorros'}];
-export function MovementHistory({snapshot,profile,scope,busy,onUndo,onRegister}:{snapshot:Snapshot;profile:Profile;scope:string;busy:boolean;onUndo:(id:string)=>Promise<void>;onRegister?:()=>void}) {
+export function MovementHistory({snapshot,profile,scope,busy,onUndo,onRegister,onCorrect,online=true}:{snapshot:Snapshot;profile:Profile;scope:string;busy:boolean;onUndo:(id:string)=>Promise<void>;onRegister?:()=>void;onCorrect?:(m:Movement)=>void;online?:boolean}) {
   const [directory,setDirectory]=useState<ContributorDirectory>({});
   const [loading,setLoading]=useState(true),[namesUnavailable,setNamesUnavailable]=useState(false);
   const [typeFilter,setTypeFilter]=useState<TypeFilter>('all'),[query,setQuery]=useState('');
@@ -62,7 +62,7 @@ export function MovementHistory({snapshot,profile,scope,busy,onUndo,onRegister}:
         </div>
         <div className="av-movement-side">
           <strong className="av-movement-amount"><span className="av-sr-only">{meta.name} de </span>{soles(m.amount)}</strong>
-          {canUndoMovement(m,profile.id)&&<button className="av-secondary" disabled={busy} onClick={()=>onUndo(m.id)} aria-label={`Deshacer ${meta.name.toLowerCase()} de ${soles(m.amount)}`}>Deshacer</button>}
+          {canUndoMovement(m,profile.id)&&<span className="av-movement-actions">{onCorrect&&<button className="av-secondary av-with-icon" disabled={busy||!online} onClick={()=>onCorrect(m)} aria-label={`Corregir ${meta.name.toLowerCase()} de ${soles(m.amount)}`}><Pencil size={20} aria-hidden="true"/>Corregir</button>}<button className="av-secondary" disabled={busy} onClick={()=>onUndo(m.id)} aria-label={`Deshacer ${meta.name.toLowerCase()} de ${soles(m.amount)}`}>Deshacer</button></span>}
         </div>
       </li>;})}</ol>
     </section>)}

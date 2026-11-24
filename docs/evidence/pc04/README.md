@@ -75,3 +75,17 @@ Estado al cerrar la PC04: build sin errores; 70 pruebas unitarias en verde (reco
 | 3 | [`fase3/`](fase3/) | Voz conversacional y [docs/VOZ.md](../../VOZ.md). |
 | 4 | [`fase4/`](fase4/) | Celebración, transiciones, deshacer de 10 s y [GIF de 10 s](fase4/meta-al-100.gif). |
 | 5 | esta carpeta | Auditoría axe, Lighthouse, guías y capturas EV-17 a EV-24. |
+
+## Jardín con especies, control del usuario y fluidez
+
+| ID | Archivo | Qué muestra | Comprobación |
+|---|---|---|---|
+| EV-30 | `EV-30-jardin-especies.png` | Árbol, girasol, cactus y bambú en el jardín | `scripts/evidence/check-plants.cjs` |
+| EV-31 | `EV-31-elegir-planta.png` | Selector «Tipo de planta» en la maceta seleccionada | `check-plants.cjs` |
+| EV-32 | `EV-32-jardin-especies-320.png` | Jardín con especies a 320 px | `check-plants.cjs` |
+| EV-33 | `EV-33-opciones-meta.png` | Opciones de la meta: editar, planta, archivar y eliminar | `check-control.cjs` |
+| EV-34 | `EV-34-metas-archivadas.png` | Metas archivadas con «Restaurar» | `check-control.cjs` |
+| EV-35 | `EV-35-confirmar-eliminar.png` | Confirmación propia y accesible (sin `window.confirm`) | `check-control.cjs` |
+| EV-36 | `EV-36-gestion-grupo.png` | Gestión del grupo: roles, quitar, salir y cerrar | `check-control.cjs` |
+| EV-37 | `EV-37-cuenta.png` | Tu cuenta: nombre visible y contraseña | `check-control.cjs` |
+| EV-38 | `EV-38-fluidez.gif` | Transiciones entre vistas y respuesta inmediata al archivar | `check-fluidity.cjs` |

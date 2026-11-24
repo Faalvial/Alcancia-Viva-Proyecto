@@ -2,7 +2,7 @@
 
 ## Estado
 
-El proyecto **Alcancia Viva** está creado en la organización elegida por el usuario, región São Paulo, con cotización de creación de US$ 0/mes. Referencia: `ahnfwlmymthfgxpyoasz`. Las migraciones están aplicadas y la interfaz React ya utiliza Auth, base de datos y Realtime. La función de Groq está desplegada y respondió en pruebas reales; la clave se guarda solo en los secretos de Supabase.
+El proyecto **Alcancia Viva** está creado en la organización elegida por el usuario, región São Paulo, con cotización de creación de US$ 0/mes. Referencia: `haqdsmtildbcubvtitfk`. Las migraciones están aplicadas y la interfaz React ya utiliza Auth, base de datos y Realtime. La función de Groq está desplegada y respondió en pruebas reales; la clave se guarda solo en los secretos de Supabase.
 
 Se verificaron dos cuentas efímeras, aprobación de ingreso, dos metas, pertenencia a varios grupos, privacidad de gastos, aportes simultáneos (S/ 100 + S/ 50), ausencia de duplicados y dos eventos compartidos recibidos por el otro usuario. La evidencia está en `docs/evidence/collaboration-api.json`.
 
