@@ -65,7 +65,7 @@ export function Onboarding({initialName,busy,error,onFinish,onSignOut}:{
         <p>¿Para qué quieres ahorrar? Una laptop, un viaje, un fondo para imprevistos… Dime cuánto y para cuándo, y plantaré su maceta. Si prefieres, lo hacemos luego.</p>
         <label>Nombre de la meta<input value={title} maxLength={100} autoComplete="off" placeholder="Por ejemplo, Laptop para la universidad…" onChange={event=>setTitle(event.target.value)}/></label>
         <div className="av-fields">
-          <label>Monto objetivo (S/)<input type="number" inputMode="decimal" autoComplete="off" min="0.01" step="0.01" value={amount} onChange={event=>setAmount(event.target.value)}/></label>
+          <label>Monto objetivo (S/)<input type="number" inputMode="decimal" autoComplete="off" min="0.01" max="999999.99" step="0.01" value={amount} onChange={event=>setAmount(event.target.value)}/></label>
           <label>Fecha objetivo<input type="date" min={localDate()} value={date} onChange={event=>setDate(event.target.value)}/></label>
         </div>
         <div className="av-actions">

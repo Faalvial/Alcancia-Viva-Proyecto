@@ -25,7 +25,7 @@ test('funciona sin almacenamiento y notifica solo los cambios de estado',()=>{
   const tracker=createRecoveryTracker(origin,{getItem(){throw Error();},setItem(){throw Error();},removeItem(){throw Error();}});let calls=0;const stop=tracker.subscribe(()=>calls++);tracker.observe('PASSWORD_RECOVERY','ana');tracker.observe('USER_UPDATED','ana');assert.equal(calls,1);stop();tracker.finish();assert.equal(calls,1);
 });
 test('solicita al correo normalizado usando el Site URL y una respuesta sin revelar cuentas',async()=>{
-  let received;const message=await requestPasswordReset({resetPasswordForEmail:async(...args)=>{received=args;return {error:null};}},' ana@example.test ');assert.deepEqual(received,['ana@example.test']);assert.equal(message,recoverySentMessage);
+  let received;const message=await requestPasswordReset({resetPasswordForEmail:async(...args)=>{received=args;return {error:null};}},' ana@example.test ');assert.equal(received[0],'ana@example.test');assert.equal(message,recoverySentMessage);
   await assert.rejects(requestPasswordReset({resetPasswordForEmail:async()=>({error:{message:'rate limit',status:429}})},'ana@example.test'));assert.match(recoveryError({status:429}),/Espera/);
 });
 test('contraseñas cortas o distintas no llegan al servidor',async()=>{

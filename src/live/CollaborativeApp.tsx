@@ -55,7 +55,7 @@ export function Auth() {
         if(!data.session)setMessage('Revisa tu correo para confirmar la cuenta. Después vuelve aquí e inicia sesión.');
       } else {
         const {error}=await db.auth.signInWithPassword({email,password});
-        if(error)throw new Error(error.message==='Invalid login credentials'?'Correo o contraseña incorrectos.':error.message);
+        if(error)throw error;
       }
     }catch(e){setError(errorMessage(e));}finally{setBusy(false);}
   }
