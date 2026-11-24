@@ -1,3 +1,4 @@
+import { vtName } from '../hooks/viewTransition';
 import React, { useState } from 'react';
 import { Archive, ArchiveRestore, Trash2 } from 'lucide-react';
 import type { Goal } from '../live/client';
@@ -61,7 +62,7 @@ export function ArchivedGoals({ goals, busy, canManage, onRestore, onDelete }: {
   return <details className="av-card av-archived">
     <summary>Metas archivadas ({goals.length})</summary>
     <p>No aparecen en el jardín ni al registrar ahorros. Sus aportes siguen en tu historial.</p>
-    <ul className="av-archived-list">{goals.map(goal => <li key={goal.id} className="av-archived-item">
+    <ul className="av-archived-list">{goals.map(goal => <li key={goal.id} className="av-archived-item" style={{ viewTransitionName: vtName('goal', goal.id) } as React.CSSProperties}>
       <div><strong>{goal.title}</strong><span>{soles(goal.current_amount)} de {soles(goal.target_amount)}</span></div>
       {canManage(goal) && <div className="av-actions av-actions-start">
         <button type="button" className="av-secondary av-with-icon" disabled={busy} onClick={() => onRestore(goal)} aria-label={`Restaurar ${goal.title}`}><ArchiveRestore size={24} aria-hidden="true" />Restaurar</button>

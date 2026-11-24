@@ -20,11 +20,11 @@ const check = async (name, fn) => { await fn(); console.log('✓', name); };
     const { page } = await open();
     await page.goto(BASE, { waitUntil: 'networkidle' });
     await page.getByRole('button', { name: 'Metas', exact: true }).click();
-    assert.match(page.url(), /\?tab=metas$/);
+    await page.waitForURL(/\?tab=metas$/); // con View Transitions el cambio llega en el siguiente cuadro
     await page.reload({ waitUntil: 'networkidle' });
     assert.equal(await page.getByRole('button', { name: 'Metas', exact: true }).getAttribute('aria-current'), 'page');
     await page.getByRole('button', { name: 'Mi jardín', exact: true }).click();
-    assert.equal(new URL(page.url()).search, '');
+    await page.waitForURL((url) => url.search === '');
     await page.close();
   });
 

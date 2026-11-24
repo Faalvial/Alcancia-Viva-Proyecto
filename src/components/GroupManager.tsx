@@ -1,3 +1,4 @@
+import { vtName } from '../hooks/viewTransition';
 import React, { useState } from 'react';
 import { DoorOpen, Pencil, ShieldCheck, ShieldOff, UserMinus, XCircle } from 'lucide-react';
 import type { Group, Member } from '../live/client';
@@ -31,7 +32,7 @@ export function GroupManager({ group, members, userId, admin, busy, onRename, on
     <h3>Integrantes</h3>
     <ul className="av-member-list">{members.map(member => {
       const self = member.user_id === userId;
-      return <li key={member.user_id} className="av-member">
+      return <li key={member.user_id} className="av-member" style={{ viewTransitionName: vtName('member', member.user_id) } as React.CSSProperties}>
         <UserAvatar name={member.name} />
         <span className="av-member-name"><strong>{member.name}{self ? ' (tú)' : ''}</strong><small>{member.role === 'admin' ? 'Administrador' : 'Miembro'}</small></span>
         {admin && !self && <span className="av-member-actions">

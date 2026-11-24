@@ -9,6 +9,7 @@ import { useConfirm } from '../components/Modal';
 import { ArchivedGoals, GoalSettings } from '../components/GoalSettings';
 import { GroupManager } from '../components/GroupManager';
 import { AccountSettings } from '../components/AccountSettings';
+import { withTransition } from '../hooks/viewTransition';
 import type { PlantKind } from './plants';
 import { amountProblem, amountTooLarge, friendlyError, MAX_AMOUNT, safeStorage } from './errors';
 import type { Snapshot, Profile, Preferences, Movement, Member, Request, Goal, Group } from './client';
@@ -22,7 +23,7 @@ import { SpeechService } from '../services/voice/speechService';
 import { useDictation } from '../hooks/useDictation';
 import { useKeyShortcut } from '../hooks/useKeyShortcut';
 import { useSheetDrag } from '../hooks/useSheetDrag';
-import { AppNav } from '../components/AppNav';
+import { AppNav, NAV_ITEMS } from '../components/AppNav';
 import type { TabId } from '../components/AppNav';
 import { tabFromUrl, urlWithTab } from '../components/AppNav';
 import { UserAvatar } from '../components/UserAvatar';
@@ -187,7 +188,22 @@ function Workspace({session}:{session:Session}) {
   const savedShown=useCountUp(garden.saved,{enabled:!reducedMotion,resetKey:groupId});
   useEffect(()=>{const query=matchMedia('(prefers-reduced-motion: reduce)');const change=()=>setSystemReduced(query.matches);query.addEventListener('change',change);return()=>query.removeEventListener('change',change);},[]);
   useEffect(()=>{SpeechService.init();SpeechService.setRate(prefs.speechRate);},[prefs.speechRate]);
-  function goTo(id:TabId){setTab(id);window.scrollTo({top:0});}
+  /** Cambios de estado con animación (View Transitions); sin ella si hay movimiento reducido. */
+  const animate=(update:()=>void,direction:'forward'|'back'|'none'='none')=>withTransition(update,{enabled:!reducedMotion,direction});
+  const tabIndex=(id:string)=>NAV_ITEMS.findIndex(item=>item.id===id);
+  function goTo(id:TabId){
+    if(id===tab)return;
+    animate(()=>setTab(id),tabIndex(id)>tabIndex(tab)?'forward':'back');window.scrollTo({top:0});
+  }
+  /** Respuesta inmediata: se muestra el cambio y se sincroniza por detrás. */
+  const mutate=(fn:(s:Snapshot)=>Snapshot)=>animate(()=>setData(s=>fn(s)));
+  const sync=()=>{refresh().catch(()=>{});};
+  const patchGoal=(id:string,patch:Partial<Goal>)=>mutate(s=>({...s,goals:s.goals.map(g=>g.id===id?{...g,...patch}:g)}));
+  /** Aplica el cambio antes de la respuesta del servidor; si falla, recarga el estado real. */
+  async function optimistic(apply:()=>void,request:()=>Promise<unknown>){
+    apply();
+    try{await request();sync();}catch(e){await refresh().catch(()=>{});throw e;}
+  }
   // La pestaña se refleja en la URL (?tab=metas) para poder enlazarla y recargar sin perderla.
   useEffect(()=>{const next=urlWithTab(location.href,tab);if(next!==location.href)history.replaceState(history.state,'',next);},[tab]);
   const signOut=()=>requireDatabase().auth.signOut();
@@ -280,32 +296,40 @@ function Workspace({session}:{session:Session}) {
   }
   const canManageGoal=(goal:Goal)=>goal.group_id?rawData.roles[goal.group_id]==='admin':goal.owner_id===userId;
   const saveGoal=(goal:Goal,title:string,amount:number,date:string)=>attempt(async()=>{
-    await rpc('update_goal',{p_goal:goal.id,p_title:title,p_amount:amount,p_date:date});await refresh();setMessage(`«${title}» se actualizó.`);
+    await optimistic(()=>patchGoal(goal.id,{title,target_amount:amount,target_date:date}),()=>rpc('update_goal',{p_goal:goal.id,p_title:title,p_amount:amount,p_date:date}));setMessage(`«${title}» se actualizó.`);
   });
   function restoreGoal(goal:Goal){
-    void act(async()=>{await rpc('set_goal_archived',{p_goal:goal.id,p_archived:false});await refresh();setSelectedGoalId(goal.id);setMessage(`«${goal.title}» volvió a tu jardín.`);});
+    void act(async()=>{await optimistic(()=>patchGoal(goal.id,{archived:false}),()=>rpc('set_goal_archived',{p_goal:goal.id,p_archived:false}));setSelectedGoalId(goal.id);setMessage(`«${goal.title}» volvió a tu jardín.`);});
   }
   function archiveGoal(goal:Goal){
     void act(async()=>{
-      await rpc('set_goal_archived',{p_goal:goal.id,p_archived:true});setGoalSettingsId('');await refresh();
+      setGoalSettingsId('');await optimistic(()=>patchGoal(goal.id,{archived:true}),()=>rpc('set_goal_archived',{p_goal:goal.id,p_archived:true}));
       setMessage(`«${goal.title}» se archivó. Sus aportes se conservan.`,{tone:'info',duration:UNDO_WINDOW_MS,countdown:true,action:{label:'Deshacer',onClick:()=>restoreGoal(goal)}});
     });
   }
   async function deleteGoal(goal:Goal){
     if(!await confirm({title:'¿Eliminar esta meta?',text:`«${goal.title}» se borrará para siempre. No tiene aportes vigentes, así que tu historial de ahorro no cambia.`,confirm:'Eliminar meta',danger:true}))return;
     await act(async()=>{
-      await rpc('delete_goal',{p_goal:goal.id});setGoalSettingsId('');
+      setGoalSettingsId('');await optimistic(()=>mutate(s=>({...s,goals:s.goals.filter(g=>g.id!==goal.id)})),()=>rpc('delete_goal',{p_goal:goal.id}));
       if(plantKinds[goal.id]){const next={...plantKinds};delete next[goal.id];await savePlantKinds(next).catch(()=>{});}
-      await refresh();setMessage('Meta eliminada.',{tone:'info'});
+      setMessage('Meta eliminada.',{tone:'info'});
     });
   }
-  const renameGroup=(group:Group,name:string)=>attempt(async()=>{await rpc('rename_group',{p_group:group.id,p_name:name});await refresh();setMessage('Nombre del grupo actualizado.');});
+  const patchPeople=(group:string,fn:(list:Member[])=>Member[])=>animate(()=>setPeopleByGroup(all=>({...all,[group]:{members:fn(all[group]?.members||[]),requests:all[group]?.requests||[]}})));
+  /** Deshacer un movimiento: se marca revertido y se descuenta de su meta al instante. */
+  const undoMovement=(id:string)=>act(async()=>{
+    await optimistic(()=>mutate(s=>{const m=s.movements.find(x=>x.id===id);if(!m||m.reversed_at)return s;
+      return {...s,movements:s.movements.map(x=>x.id===id?{...x,reversed_at:new Date().toISOString()}:x),goals:s.goals.map(g=>g.id===m.goal_id&&m.type==='savings'?{...g,current_amount:Math.max(0,Math.round((g.current_amount-m.amount)*100)/100)}:g)};}),
+      ()=>rpc('reverse_movement',{p_id:id}));
+    setMessage('Movimiento revertido; actualizamos el avance.',{tone:'info'});
+  });
+  const renameGroup=(group:Group,name:string)=>attempt(async()=>{await optimistic(()=>mutate(s=>({...s,groups:s.groups.map(g=>g.id===group.id?{...g,name}:g)})),()=>rpc('rename_group',{p_group:group.id,p_name:name}));setMessage('Nombre del grupo actualizado.');});
   function setMemberRole(group:Group,member:Member,role:'admin'|'member'){
-    void act(async()=>{await rpc('set_member_role',{p_group:group.id,p_user:member.user_id,p_role:role});await refresh();setMessage(role==='admin'?`${member.name} ahora también administra el grupo.`:`${member.name} ahora es miembro.`);});
+    void act(async()=>{await optimistic(()=>patchPeople(group.id,list=>list.map(m=>m.user_id===member.user_id?{...m,role}:m)),()=>rpc('set_member_role',{p_group:group.id,p_user:member.user_id,p_role:role}));setMessage(role==='admin'?`${member.name} ahora también administra el grupo.`:`${member.name} ahora es miembro.`);});
   }
   async function removeMember(group:Group,member:Member){
     if(!await confirm({title:`¿Quitar a ${member.name}?`,text:`Dejará de ver las metas de ${group.name}. Sus aportes se conservan y podrá volver a pedir ingreso con un código.`,confirm:'Quitar del grupo',danger:true}))return;
-    await act(async()=>{await rpc('remove_member',{p_group:group.id,p_user:member.user_id});await refresh();setMessage(`${member.name} ya no está en el grupo.`,{tone:'info'});});
+    await act(async()=>{await optimistic(()=>patchPeople(group.id,list=>list.filter(m=>m.user_id!==member.user_id)),()=>rpc('remove_member',{p_group:group.id,p_user:member.user_id}));setMessage(`${member.name} ya no está en el grupo.`,{tone:'info'});});
   }
   async function leaveGroup(group:Group){
     if(!await confirm({title:`¿Salir de ${group.name}?`,text:'Dejarás de ver sus metas compartidas. Tus aportes se conservan y puedes volver con un código de invitación.',confirm:'Salir del grupo'}))return;
@@ -316,7 +340,7 @@ function Workspace({session}:{session:Session}) {
     await act(async()=>{await rpc('close_group',{p_group:group.id});setGroupId(ALL_SPACES);await refresh();setMessage(`Cerraste ${group.name}.`,{tone:'info'});});
   }
   function cancelRequest(request:Request){
-    void act(async()=>{await rpc('cancel_join_request',{p_request:request.id});await refresh();setMessage('Solicitud cancelada.',{tone:'info'});});
+    void act(async()=>{await optimistic(()=>mutate(s=>({...s,requests:s.requests.filter(x=>x.id!==request.id)})),()=>rpc('cancel_join_request',{p_request:request.id}));setMessage('Solicitud cancelada.',{tone:'info'});});
   }
   /** Corregir = guardar el registro nuevo y revertir el anterior (queda en el historial como revertido). */
   async function saveCorrection(old:Movement,next:Movement){
@@ -347,6 +371,9 @@ function Workspace({session}:{session:Session}) {
     if(!online){writeQueue([...readQueue(),m]);setMessage('Guardado como pendiente en este dispositivo. Se sincronizará al recuperar conexión.',{type:m.type,tone:'info'});return;}
     const target=m.type==='savings'?data.goals.find(g=>g.id===m.goal_id):undefined;
     await saveRemote(m);
+    // Se ve al instante (movimiento y avance de la meta); el servidor confirma por detrás.
+    // Idempotente: si la recarga del servidor ya trajo este movimiento, no se vuelve a sumar.
+    mutate(s=>s.movements.some(x=>x.id===m.id)?s:({...s,movements:[{...m,created_at:new Date().toISOString()},...s.movements],goals:s.goals.map(g=>g.id===m.goal_id&&m.type==='savings'?{...g,current_amount:Math.round((g.current_amount+m.amount)*100)/100}:g)}));
     vibrate('success');
     let bloomed=false;
     if(target&&target.target_amount>0){
@@ -360,13 +387,13 @@ function Workspace({session}:{session:Session}) {
     const savedText=m.type==='savings'?`${soles(m.amount)} sumados a ${target?.title}.`:`${movementNames[m.type]} de ${soles(m.amount)} guardado.`;
     // HU-17: «Deshacer» durante 10 s con una barra que se vacía; después sigue disponible en Movimientos.
     setMessage(bloomed?`¡${target?.title} floreció! ${savedText}`:savedText,
-      {type:m.type,tone:bloomed?'celebration':'success',duration:UNDO_WINDOW_MS,countdown:true,action:{label:'Deshacer',onClick:()=>act(async()=>{await rpc('reverse_movement',{p_id:m.id});await refresh();setMessage('Movimiento revertido; actualizamos el avance.',{tone:'info'});})}});
+      {type:m.type,tone:bloomed?'celebration':'success',duration:UNDO_WINDOW_MS,countdown:true,action:{label:'Deshacer',onClick:()=>void undoMovement(m.id)}});
     if(profile&&phrase&&m.type==='expense'&&originalCategory!==m.category){
       const key=learningKey(phrase);const previous=profile.learned_categories[key];
       try{await updateProfile({...profile,learned_categories:{...profile.learned_categories,[key]:{category:m.category,count:previous?.category===m.category?previous.count+1:1}}});}
       catch{setNotice('El movimiento se guardó; no se pudo actualizar la categoría aprendida.');}
     }
-    await refresh();
+    sync();
     if(m.type==='savings'&&m.goal_id)setWatering({goalId:m.goal_id,nonce:Date.now()});
   }
   async function askAssistant(e:React.FormEvent){e.preventDefault();await askQuestion(assistantQuestion);}
@@ -405,7 +432,7 @@ function Workspace({session}:{session:Session}) {
       {pending>0&&<p role="status">{pending} movimiento(s) pendiente(s). <button className="av-link" disabled={!online||busy} onClick={()=>act(flushQueue)}>Reintentar sincronización</button></p>}
       <div className="av-tab-panel" key={tab}>
       {tab==='garden'&&<>
-        <Garden goals={selectedGoals} groups={data.groups} selectedId={selectedGoalId} today={today} prefs={prefs} onSelect={setSelectedGoalId} onContribute={openComposer} onCreate={()=>setTab('goals')} watering={watering} celebration={celebration} plantKinds={plantKinds} onPlantChange={(goalId,kind)=>void choosePlant(goalId,kind)} canManage={canManageGoal} onOptions={goal=>setGoalSettingsId(goal.id)}/>
+        <Garden goals={selectedGoals} groups={data.groups} selectedId={selectedGoalId} today={today} prefs={prefs} onSelect={id=>animate(()=>setSelectedGoalId(id))} onContribute={openComposer} onCreate={()=>setTab('goals')} watering={watering} celebration={celebration} plantKinds={plantKinds} onPlantChange={(goalId,kind)=>void choosePlant(goalId,kind)} canManage={canManageGoal} onOptions={goal=>setGoalSettingsId(goal.id)}/>
         <div className="av-stats"><section className="av-card"><h2>Avance conjunto de tus metas</h2><strong>{soles(savedShown)}</strong><p>{selectedGoals.length} meta(s){isOverview?' personales y compartidas':selectedGroup?` de ${selectedGroup.name}`:' personales'}. Cada planta crece según su propio avance.</p></section>
           <section className="av-card av-budget-card"><h2>Tu presupuesto semanal</h2><p>Solo tus gastos de esta semana, de lunes a hoy.</p><BudgetGauge spent={spent} budget={prefs.weeklyBudget} movements={mine} today={today}/>
             <p>{spent>prefs.weeklyBudget?'Superaste el presupuesto que elegiste. Puedes revisar tus categorías y ajustar el próximo paso.':'Puedes revisar tus movimientos cuando lo necesites.'}</p></section></div>
@@ -414,7 +441,7 @@ function Workspace({session}:{session:Session}) {
         {isOverview&&<p>Al crear aquí una meta será personal. Para crear una meta compartida, elige su grupo en «Tu espacio».</p>}
         {(!selectedGroup||groupAdmin)&&<GoalForm groupId={selectedGroup?.id||''} busy={busy} onCreate={(title,amount,date,kind)=>act(async()=>{const problem=amountProblem(amount);if(problem)throw new Error(problem);const id=await rpc<string>('create_goal',{p_title:title,p_amount:amount,p_date:date,p_group:selectedGroup?.id||null});if(kind!=='cosmos')await savePlantKinds({...plantKinds,[id]:kind}).catch(()=>{});await refresh();setSelectedGoalId(id);setMessage('Meta creada. Plantamos una nueva maceta; el ahorro de tus otras metas se conserva.');})}/>}
         {!!selectedGroup&&!groupAdmin&&<p>El administrador crea las metas. Todos los miembros pueden aportar.</p>}
-        <div className="av-cards">{selectedGoals.map(g=><GoalCard key={g.id} goal={g} kind={plantKinds[g.id]} onOptions={canManageGoal(g)?()=>setGoalSettingsId(g.id):undefined} groups={data.groups} today={today} onView={()=>{setSelectedGoalId(g.id);setTab('garden');}} onContribute={()=>openComposer(g)}/>)}</div>
+        <div className="av-cards">{selectedGoals.map(g=><GoalCard key={g.id} goal={g} kind={plantKinds[g.id]} onOptions={canManageGoal(g)?()=>setGoalSettingsId(g.id):undefined} groups={data.groups} today={today} onView={()=>{animate(()=>{setSelectedGoalId(g.id);setTab('garden');},'back');window.scrollTo({top:0});}} onContribute={()=>openComposer(g)}/>)}</div>
         <ArchivedGoals goals={archivedGoals} busy={busy} canManage={canManageGoal} onRestore={restoreGoal} onDelete={goal=>void deleteGoal(goal)}/>
         {!selectedGoals.length&&<EmptyState title="Planta tu primera meta" text={!selectedGroup||groupAdmin?'Dale un nombre, un monto y una fecha. Verás crecer su maceta con cada aporte.':'Cuando el administrador cree una meta compartida, aparecerá aquí para que aportes.'}
           action={!selectedGroup||groupAdmin?{label:'Crear una meta',icon:<Target size={24} aria-hidden="true"/>,onClick:()=>{const form=document.getElementById('av-goal-form') as HTMLDetailsElement|null;if(form){form.open=true;form.querySelector('input')?.focus();}}}:undefined}/>}</>}
@@ -437,7 +464,7 @@ function Workspace({session}:{session:Session}) {
               <button disabled={busy} onClick={()=>act(async()=>{await rpc('decide_group_request',{p_request:r.id,p_approve:true});await refresh();setMessage('Solicitud aprobada.');})}>Aprobar</button>
               <button className="av-secondary" disabled={busy} onClick={async()=>{if(await confirm({title:`¿Rechazar la solicitud de ${r.name}?`,text:'Podrá volver a pedir ingreso con un código.',confirm:'Rechazar',danger:true}))void act(async()=>{await rpc('decide_group_request',{p_request:r.id,p_approve:false});await refresh();setMessage('Solicitud rechazada.');});}}>Rechazar</button></div>)}</>}
         </section>}</>}
-      {tab==='history'&&<MovementHistory snapshot={rawData} onCorrect={openCorrection} online={online} profile={profile} scope={groupId} busy={busy} onRegister={()=>openComposer()} onUndo={id=>act(async()=>{await rpc('reverse_movement',{p_id:id});await refresh();setMessage('Movimiento revertido; actualizamos el avance.');})}/>}
+      {tab==='history'&&<MovementHistory snapshot={rawData} onCorrect={openCorrection} online={online} profile={profile} scope={groupId} busy={busy} onRegister={()=>openComposer()} onUndo={undoMovement}/>}
       {tab==='assistant'&&<><h1>Un paso a la vez</h1><p>Soy el asistente de IA de Alcancía Viva. Puedo ayudarte a comprender tus registros; las propuestas no mueven dinero ni crean aportes.</p>
         {!chat.length&&<EmptyState title="Pregunta lo que quieras entender" text="Por ejemplo: «¿En qué gasté más esta semana?» o «¿Cuánto me falta para mi laptop?». Puedes escribir o dictar." action={{label:'Escribir una pregunta',icon:<MessageCircle size={24} aria-hidden="true"/>,onClick:()=>document.getElementById('av-assistant-question')?.focus()}}/>}
         <div role="log" aria-label="Conversación con el asistente" aria-live="polite">{chat.map((item,i)=><section className="av-card" key={i}><p><strong>Tú:</strong> {item.question}</p><AssistantAnswer answer={item.answer} highlight={!reducedMotion}/></section>)}</div>

@@ -1547,3 +1547,86 @@
 .av-app ul.av-archived-list,
 .av-app ul.av-member-list,
 .av-app ul.av-request-list { padding-left: 0; margin-left: 0; }
+
+/* ===================== Fluidez: transiciones de vista, listas vivas y crecimiento ===================== */
+/* Pestañas: solo el panel se desliza; la navegación queda quieta. */
+.av-tab-panel { view-transition-name: tab-panel; }
+::view-transition-group(*) {
+  animation-duration: var(--av-dur-base);
+  animation-timing-function: var(--av-ease-out);
+}
+::view-transition-old(tab-panel),
+::view-transition-new(tab-panel) { animation-duration: 240ms; }
+html[data-vt="forward"]::view-transition-old(tab-panel) { animation: av-vt-out-start 200ms var(--av-ease-out) both; }
+html[data-vt="forward"]::view-transition-new(tab-panel) { animation: av-vt-in-end 260ms var(--av-ease-out) both; }
+html[data-vt="back"]::view-transition-old(tab-panel) { animation: av-vt-out-end 200ms var(--av-ease-out) both; }
+html[data-vt="back"]::view-transition-new(tab-panel) { animation: av-vt-in-start 260ms var(--av-ease-out) both; }
+@keyframes av-vt-out-start { to { opacity: 0; transform: translateX(-28px); } }
+@keyframes av-vt-out-end { to { opacity: 0; transform: translateX(28px); } }
+@keyframes av-vt-in-end { from { opacity: 0; transform: translateX(28px); } }
+@keyframes av-vt-in-start { from { opacity: 0; transform: translateX(-28px); } }
+
+/* Elementos que aparecen en una lista: suben y se funden (los primeros, escalonados). */
+@keyframes av-rise { from { opacity: 0; transform: translateY(10px); } }
+.av-cards > *,
+.av-timeline > li,
+.av-member-list > li,
+.av-archived-list > li,
+.av-request-list > li,
+.ag-pots > .ag-pot,
+[role="log"] > section {
+  animation: av-rise 320ms var(--av-ease-out) backwards;
+}
+:is(.av-cards, .av-timeline, .av-member-list, .ag-pots) > :nth-child(2) { animation-delay: 40ms; }
+:is(.av-cards, .av-timeline, .av-member-list, .ag-pots) > :nth-child(3) { animation-delay: 80ms; }
+:is(.av-cards, .av-timeline, .av-member-list, .ag-pots) > :nth-child(4) { animation-delay: 120ms; }
+:is(.av-cards, .av-timeline, .av-member-list, .ag-pots) > :nth-child(n+5) { animation-delay: 160ms; }
+
+/* Paneles desplegables (Crear una meta, Ayuda, Metas archivadas…) se abren con suavidad. */
+:root { interpolate-size: allow-keywords; }
+details::details-content {
+  block-size: 0;
+  overflow-y: clip;
+  transition: block-size var(--av-dur-base) var(--av-ease-out), content-visibility var(--av-dur-base) allow-discrete;
+}
+details[open]::details-content { block-size: auto; }
+
+/* Diálogos en escritorio: aparecen con un leve ascenso; el fondo se funde. */
+@media (min-width: 768px) {
+  .av-dialog[open] { animation: av-dialog-in var(--av-dur-base) var(--av-ease-out); }
+}
+.av-dialog[open]::backdrop { animation: av-backdrop-in var(--av-dur-base) ease-out; }
+@keyframes av-dialog-in { from { opacity: 0; transform: translateY(14px) scale(0.97); } }
+@keyframes av-backdrop-in { from { opacity: 0; } }
+
+/* Las plantas ilustradas crecen desde la tierra al subir de etapa. */
+.ag-svg-plant.ag-stage-in .ag-svg-sway { animation: ag-grow 820ms var(--av-ease-out) both; }
+@keyframes ag-grow {
+  from { opacity: 0.3; transform: scale(0.55, 0.3); }
+  60% { opacity: 1; transform: scale(1.03, 1.06); }
+  to { transform: none; }
+}
+
+/* Botones y tarjetas: respuesta suave al pasar el puntero. */
+.av-goal-card, .av-member, .av-archived-item, .ag-plant-option {
+  transition: box-shadow var(--av-dur-fast) var(--av-ease-out), border-color var(--av-dur-fast) var(--av-ease-out), transform var(--av-dur-fast) var(--av-ease-out);
+}
+@media (hover: hover) {
+  .av-goal-card:hover { box-shadow: var(--av-shadow-md); transform: translateY(-2px); }
+  .ag-plant-option:hover { border-color: var(--av-accent); }
+}
+
+/* Sin movimiento: preferencia del sistema o «Reducir movimiento» (.av-still). */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+  .av-cards > *, .av-timeline > li, .av-member-list > li, .av-archived-list > li, .av-request-list > li, .ag-pots > .ag-pot, [role="log"] > section,
+  .av-dialog[open], .av-dialog[open]::backdrop, .ag-svg-plant.ag-stage-in .ag-svg-sway { animation: none !important; }
+  details::details-content { transition: none; }
+  .av-goal-card, .av-member, .av-archived-item, .ag-plant-option { transition: none; }
+  .av-goal-card:hover { transform: none; }
+}
+.av-still :is(.av-cards > *, .av-timeline > li, .av-member-list > li, .av-archived-list > li, .av-request-list > li, .ag-pots > .ag-pot, [role="log"] > section),
+.av-still .av-dialog[open], .av-still .av-dialog[open]::backdrop, .av-still .ag-svg-plant.ag-stage-in .ag-svg-sway { animation: none !important; }
+.av-still details::details-content { transition: none; }
+.av-still :is(.av-goal-card, .av-member, .av-archived-item, .ag-plant-option) { transition: none; }
+.av-still .av-goal-card:hover { transform: none; }

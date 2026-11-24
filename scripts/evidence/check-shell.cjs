@@ -30,7 +30,7 @@ const check = async (name, fn) => { await fn(); console.log('✓', name); };
       assert.equal(await item.locator('.av-nav-text--short').evaluate(e => e.scrollWidth <= e.clientWidth), true, 'etiqueta truncada');
     }
     await page.getByRole('button', { name: 'Metas', exact: true }).click();
-    assert.equal(await page.getByRole('button', { name: 'Metas', exact: true }).getAttribute('aria-current'), 'page');
+    await page.locator('.av-nav-item[data-tab="goals"][aria-current="page"]').first().waitFor({ state: 'attached' }); // View Transition: siguiente cuadro
     await page.getByRole('button', { name: 'Preferencias' }).filter({ visible: true }).click();
     await page.getByRole('heading', { name: 'A tu manera' }).waitFor();
     await page.getByRole('button', { name: 'Cerrar sesión' }).waitFor();
