@@ -8,6 +8,7 @@ import { goalRemaining } from './timeline';
 import { GoalRing } from '../components/GoalRing';
 import { usePreviousStage } from '../hooks/usePreviousStage';
 import { useCountUp } from '../hooks/useCountUp';
+import { SlidersHorizontal } from 'lucide-react';
 import { PlantArt } from '../components/PlantArt';
 import { PlantPicker } from '../components/PlantPicker';
 import { speciesOf } from './plants';
@@ -50,8 +51,11 @@ interface GardenProps {
   celebration?:{goalId:string;nonce:number}|null;
   plantKinds?:Record<string,PlantKind>;
   onPlantChange?:(goalId:string,kind:PlantKind)=>void;
+  /** Abre las opciones de la meta (solo si el usuario puede gestionarla). */
+  onOptions?:(goal:Goal)=>void;
+  canManage?:(goal:Goal)=>boolean;
 }
-export function Garden({goals,groups,selectedId,today,prefs,onSelect,onContribute,onCreate,watering,celebration=null,plantKinds={},onPlantChange}:GardenProps) {
+export function Garden({goals,groups,selectedId,today,prefs,onSelect,onContribute,onCreate,watering,celebration=null,plantKinds={},onPlantChange,onOptions,canManage}:GardenProps) {
   const [paused,setPaused]=useState(false),[systemReduced,setSystemReduced]=useState(()=>matchMedia('(prefers-reduced-motion: reduce)').matches);
   useEffect(()=>{const query=matchMedia('(prefers-reduced-motion: reduce)');const change=()=>setSystemReduced(query.matches);query.addEventListener('change',change);return()=>query.removeEventListener('change',change);},[]);
   const selected=goals.find(goal=>goal.id===selectedId)||goals[0];
@@ -90,7 +94,7 @@ export function Garden({goals,groups,selectedId,today,prefs,onSelect,onContribut
       <div className="ag-add"><button className="av-secondary" onClick={onCreate}>＋ Crear una meta</button></div>
     </div>
     {selected&&rhythm&&<section id="av-garden-detail" className="ag-detail" aria-labelledby="av-garden-goal-title">
-      <div className="ag-detail-top"><span className="ag-eyebrow">TU MACETA SELECCIONADA</span><span className="ag-type">{groupLabel(selected,groups)}</span></div>
+      <div className="ag-detail-top"><span className="ag-eyebrow">TU MACETA SELECCIONADA</span><span className="ag-type">{groupLabel(selected,groups)}</span>{onOptions&&(!canManage||canManage(selected))&&<button type="button" className="av-secondary av-with-icon ag-options" onClick={()=>onOptions(selected)} aria-label={`Opciones de ${selected.title}`}><SlidersHorizontal size={20} aria-hidden="true"/>Opciones</button>}</div>
       <h2 id="av-garden-goal-title">{selected.title}</h2><p className="ag-stage-name">{stage.name}</p>
       <div className="ag-money"><strong>{soles(savedShown)}</strong><span>de {soles(selected.target_amount)}</span></div>
       <div className="ag-progress-title"><span>Tu avance</span><strong>{gardenNumber(value)} %</strong></div><progress max={100} value={value} aria-label={`Avance de ${selected.title}`}/>
@@ -106,7 +110,7 @@ export function Garden({goals,groups,selectedId,today,prefs,onSelect,onContribut
   </section>;
 }
 
-export function GoalCard({goal,groups,today,onView,onContribute,kind='cosmos'}:{goal:Goal;groups:Group[];today:string;onView:()=>void;onContribute:()=>void;kind?:PlantKind}) {
+export function GoalCard({goal,groups,today,onView,onContribute,kind='cosmos',onOptions}:{goal:Goal;groups:Group[];today:string;onView:()=>void;onContribute:()=>void;kind?:PlantKind;onOptions?:()=>void}) {
   const value=goalPercent(goal),stageIndex=growthStage(value),phase={name:speciesOf(kind).stages[stageIndex]},remaining=goalRemaining(goal);
-  return <article className={`av-goal-card av-stage-${stageIndex}`}><div className="ag-card-art"><Plant percent={value} kind={kind}/><span className="ag-card-type">{groupLabel(goal,groups)}</span><GoalRing percent={value} stage={stageIndex} label={`${gardenNumber(value)} %`}/></div><div className="ag-card-body"><h2>{goal.title}</h2><p>{soles(goal.current_amount)} de {soles(goal.target_amount)}</p><p className="av-goal-remaining">{remaining>0?`Te faltan ${soles(remaining)}`:`Meta completa: ${speciesOf(kind).stages[5].toLocaleLowerCase('es-PE')}.`}</p><div className="ag-progress-title"><span>{phase.name}</span><strong>{gardenNumber(value)} %</strong></div><progress max={100} value={value} aria-label={`Avance de ${goal.title}`}/><p>{goalPace(goal,today).label}</p><p>Fecha objetivo: {goalDateLabel(goal.target_date)}</p><div className="ag-card-actions"><button className="av-secondary" aria-label={`Ver la maceta de ${goal.title}`} onClick={onView}>Ver mi maceta</button><button aria-label={`Registrar un aporte para ${goal.title}`} onClick={onContribute}>Registrar un aporte</button></div></div></article>;
+  return <article className={`av-goal-card av-stage-${stageIndex}`}><div className="ag-card-art"><Plant percent={value} kind={kind}/><span className="ag-card-type">{groupLabel(goal,groups)}</span><GoalRing percent={value} stage={stageIndex} label={`${gardenNumber(value)} %`}/></div><div className="ag-card-body"><h2>{goal.title}</h2><p>{soles(goal.current_amount)} de {soles(goal.target_amount)}</p><p className="av-goal-remaining">{remaining>0?`Te faltan ${soles(remaining)}`:`Meta completa: ${speciesOf(kind).stages[5].toLocaleLowerCase('es-PE')}.`}</p><div className="ag-progress-title"><span>{phase.name}</span><strong>{gardenNumber(value)} %</strong></div><progress max={100} value={value} aria-label={`Avance de ${goal.title}`}/><p>{goalPace(goal,today).label}</p><p>Fecha objetivo: {goalDateLabel(goal.target_date)}</p><div className="ag-card-actions"><button className="av-secondary" aria-label={`Ver la maceta de ${goal.title}`} onClick={onView}>Ver mi maceta</button><button aria-label={`Registrar un aporte para ${goal.title}`} onClick={onContribute}>Registrar un aporte</button>{onOptions&&<button className="av-secondary av-with-icon" aria-label={`Opciones de ${goal.title}`} onClick={onOptions}><SlidersHorizontal size={24} aria-hidden="true"/>Opciones</button>}</div></div></article>;
 }

@@ -1485,3 +1485,65 @@
 /* Pantalla de rescate (ErrorBoundary) */
 .av-crash { display: grid; place-items: center; min-height: 100dvh; padding: var(--av-space-5); }
 .av-crash .av-card { max-width: 32rem; }
+
+/* ===================== Control del usuario: metas, grupos y cuenta ===================== */
+.av-actions.av-actions-start { justify-content: flex-start; flex-wrap: wrap; }
+.av-note { font-size: var(--av-text-sm); color: var(--av-ink-soft); margin: var(--av-space-2) 0 0; }
+
+.av-app button.av-danger {
+  background: var(--c-gasto);
+  border-color: var(--c-gasto);
+  color: var(--av-on-accent);
+}
+.av-app button.av-danger-outline:not(:disabled) {
+  color: var(--c-gasto);
+  border-color: color-mix(in srgb, var(--c-gasto) 55%, transparent);
+}
+.av-danger-zone {
+  margin-top: var(--av-space-5);
+  padding-top: var(--av-space-4);
+  border-top: 1px solid var(--av-line);
+}
+.av-danger-zone h3 { margin: 0 0 var(--av-space-2); font-size: var(--av-text-h3); }
+.av-danger-zone p { margin: 0 0 var(--av-space-3); }
+
+.av-modal .av-dialog-title h2:focus { outline: none; }
+.av-confirm { width: min(460px, calc(100% - 24px)); }
+.av-confirm .av-actions { justify-content: flex-end; flex-wrap: wrap; margin-top: var(--av-space-4); }
+
+.ag-detail-top .ag-options { margin-left: auto; min-height: var(--av-touch-target); }
+.ag-detail-top .ag-type { margin-left: auto; }
+.ag-detail-top .ag-options + * { margin-left: 0; }
+
+.av-archived summary,
+.av-password summary { cursor: pointer; font-weight: 700; min-height: var(--av-touch-target); display: flex; align-items: center; }
+.av-archived-list,
+.av-member-list,
+.av-request-list { list-style: none; margin: var(--av-space-3) 0 0; padding: 0; display: grid; gap: var(--av-space-2); }
+.av-archived-item,
+.av-member {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--av-space-3);
+  padding: var(--av-space-3);
+  border: 1px solid var(--av-line);
+  border-radius: var(--av-radius-sm);
+}
+.av-archived-item > div:first-child,
+.av-member-name { display: grid; gap: 2px; flex: 1 1 12rem; min-width: 0; }
+.av-archived-item span,
+.av-member-name small { color: var(--av-ink-soft); font-size: var(--av-text-sm); }
+.av-member-actions { display: flex; flex-wrap: wrap; gap: var(--av-space-2); }
+.av-request-list .av-request { justify-content: space-between; flex-wrap: wrap; }
+.av-group-manager { display: grid; gap: var(--av-space-3); margin-top: var(--av-space-3); }
+.av-group-manager h3 { margin: var(--av-space-2) 0 0; }
+.av-inline-form { display: grid; gap: var(--av-space-3); }
+.av-account { display: grid; gap: var(--av-space-4); }
+.av-account h2, .av-account p { margin: 0; }
+.av-movement-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--av-space-2); }
+.av-goal-settings .ag-plant-picker { margin-top: var(--av-space-5); }
+.av-group-manager > button { justify-self: start; }
+.av-app ul.av-archived-list,
+.av-app ul.av-member-list,
+.av-app ul.av-request-list { padding-left: 0; margin-left: 0; }

@@ -1,13 +1,17 @@
-import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { database, requireDatabase, rpc, loadSnapshot, emptySnapshot, passwordRecovery } from './client';
 import { PasswordRecovery, RecoveryEmailForm } from './PasswordRecovery';
 import { cleanRecoveryUrl } from './recoveryFlow';
 import { isPlantKind, plantKindsFrom } from './plants';
 import { PlantPicker } from '../components/PlantPicker';
+import { useConfirm } from '../components/Modal';
+import { ArchivedGoals, GoalSettings } from '../components/GoalSettings';
+import { GroupManager } from '../components/GroupManager';
+import { AccountSettings } from '../components/AccountSettings';
 import type { PlantKind } from './plants';
 import { amountProblem, amountTooLarge, friendlyError, MAX_AMOUNT, safeStorage } from './errors';
-import type { Snapshot, Profile, Preferences, Movement, Member, Request, Goal } from './client';
+import type { Snapshot, Profile, Preferences, Movement, Member, Request, Goal, Group } from './client';
 import { interpretLocally, learningKey, localDate, soles, weekExpenses } from './domain';
 import { ALL_SPACES, gardenSummary, goalsForScope, movementPreset } from './garden';
 import { Garden, GoalCard } from './GardenView';
@@ -142,7 +146,12 @@ function Auth() {
 function Workspace({session}:{session:Session}) {
   const userId=session.user.id;
   const [profile,setProfile]=useState<Profile|null>(null),[profileReady,setProfileReady]=useState(false);
-  const [data,setData]=useState<Snapshot>(emptySnapshot),[tab,setTab]=useState<string>(()=>tabFromUrl(location.search)),[groupId,setGroupId]=useState(ALL_SPACES);
+  const [rawData,setData]=useState<Snapshot>(emptySnapshot),[tab,setTab]=useState<string>(()=>tabFromUrl(location.search)),[groupId,setGroupId]=useState(ALL_SPACES);
+  // Las metas archivadas quedan fuera del jardín y del registro; el historial las sigue nombrando.
+  const data=useMemo(()=>({...rawData,goals:rawData.goals.filter(g=>!g.archived)}),[rawData]);
+  const archivedGoals=useMemo(()=>rawData.goals.filter(g=>g.archived&&(groupId===ALL_SPACES||g.group_id===(groupId||null))),[rawData,groupId]);
+  const [confirm,confirmDialog]=useConfirm();
+  const [goalSettingsId,setGoalSettingsId]=useState(''),[correcting,setCorrecting]=useState<Movement|null>(null);
   const [toast,setToast]=useState<ToastData|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);
   const setMessage=(text:string,extra:Partial<ToastData>={})=>setToast(text?{id:Date.now()+Math.random(),text,tone:'success',...extra}:null);
   const [online,setOnline]=useState(navigator.onLine),[connected,setConnected]=useState(false);
@@ -264,6 +273,68 @@ function Workspace({session}:{session:Session}) {
     if(plantKinds[goalId]===kind||(!plantKinds[goalId]&&kind==='cosmos'))return;
     await act(async()=>{await savePlantKinds({...plantKinds,[goalId]:kind});setMessage('Planta cambiada. Tu avance se conserva.');});
   }
+  /** Como act(), pero devuelve si salió bien (para cerrar formularios solo en ese caso). */
+  async function attempt(action:()=>Promise<void>){
+    setBusy(true);setError('');
+    try{await action();return true;}catch(e){setError(errorMessage(e));setMessage(errorMessage(e),{tone:'info'});return false;}finally{setBusy(false);}
+  }
+  const canManageGoal=(goal:Goal)=>goal.group_id?rawData.roles[goal.group_id]==='admin':goal.owner_id===userId;
+  const saveGoal=(goal:Goal,title:string,amount:number,date:string)=>attempt(async()=>{
+    await rpc('update_goal',{p_goal:goal.id,p_title:title,p_amount:amount,p_date:date});await refresh();setMessage(`«${title}» se actualizó.`);
+  });
+  function restoreGoal(goal:Goal){
+    void act(async()=>{await rpc('set_goal_archived',{p_goal:goal.id,p_archived:false});await refresh();setSelectedGoalId(goal.id);setMessage(`«${goal.title}» volvió a tu jardín.`);});
+  }
+  function archiveGoal(goal:Goal){
+    void act(async()=>{
+      await rpc('set_goal_archived',{p_goal:goal.id,p_archived:true});setGoalSettingsId('');await refresh();
+      setMessage(`«${goal.title}» se archivó. Sus aportes se conservan.`,{tone:'info',duration:UNDO_WINDOW_MS,countdown:true,action:{label:'Deshacer',onClick:()=>restoreGoal(goal)}});
+    });
+  }
+  async function deleteGoal(goal:Goal){
+    if(!await confirm({title:'¿Eliminar esta meta?',text:`«${goal.title}» se borrará para siempre. No tiene aportes vigentes, así que tu historial de ahorro no cambia.`,confirm:'Eliminar meta',danger:true}))return;
+    await act(async()=>{
+      await rpc('delete_goal',{p_goal:goal.id});setGoalSettingsId('');
+      if(plantKinds[goal.id]){const next={...plantKinds};delete next[goal.id];await savePlantKinds(next).catch(()=>{});}
+      await refresh();setMessage('Meta eliminada.',{tone:'info'});
+    });
+  }
+  const renameGroup=(group:Group,name:string)=>attempt(async()=>{await rpc('rename_group',{p_group:group.id,p_name:name});await refresh();setMessage('Nombre del grupo actualizado.');});
+  function setMemberRole(group:Group,member:Member,role:'admin'|'member'){
+    void act(async()=>{await rpc('set_member_role',{p_group:group.id,p_user:member.user_id,p_role:role});await refresh();setMessage(role==='admin'?`${member.name} ahora también administra el grupo.`:`${member.name} ahora es miembro.`);});
+  }
+  async function removeMember(group:Group,member:Member){
+    if(!await confirm({title:`¿Quitar a ${member.name}?`,text:`Dejará de ver las metas de ${group.name}. Sus aportes se conservan y podrá volver a pedir ingreso con un código.`,confirm:'Quitar del grupo',danger:true}))return;
+    await act(async()=>{await rpc('remove_member',{p_group:group.id,p_user:member.user_id});await refresh();setMessage(`${member.name} ya no está en el grupo.`,{tone:'info'});});
+  }
+  async function leaveGroup(group:Group){
+    if(!await confirm({title:`¿Salir de ${group.name}?`,text:'Dejarás de ver sus metas compartidas. Tus aportes se conservan y puedes volver con un código de invitación.',confirm:'Salir del grupo'}))return;
+    await act(async()=>{await rpc('leave_group',{p_group:group.id});setGroupId(ALL_SPACES);await refresh();setMessage(`Saliste de ${group.name}.`,{tone:'info'});});
+  }
+  async function closeGroup(group:Group){
+    if(!await confirm({title:`¿Cerrar ${group.name}?`,text:'El grupo desaparecerá para todas las personas y sus metas se archivarán. Los aportes siguen en el historial de cada quien. No se puede deshacer.',confirm:'Cerrar grupo',danger:true}))return;
+    await act(async()=>{await rpc('close_group',{p_group:group.id});setGroupId(ALL_SPACES);await refresh();setMessage(`Cerraste ${group.name}.`,{tone:'info'});});
+  }
+  function cancelRequest(request:Request){
+    void act(async()=>{await rpc('cancel_join_request',{p_request:request.id});await refresh();setMessage('Solicitud cancelada.',{tone:'info'});});
+  }
+  /** Corregir = guardar el registro nuevo y revertir el anterior (queda en el historial como revertido). */
+  async function saveCorrection(old:Movement,next:Movement){
+    const problem=amountProblem(next.amount);if(problem)throw new Error(problem);
+    await saveRemote(next);await rpc('reverse_movement',{p_id:old.id});await refresh();
+    setMessage('Movimiento corregido. El registro anterior queda como revertido en el historial.');
+  }
+  function openCorrection(m:Movement){
+    if(!online){setMessage('Para corregir un movimiento necesitas conexión. Puedes deshacerlo y registrarlo de nuevo.',{tone:'info'});return;}
+    setCorrecting(m);setComposerGoalId(m.goal_id||'');setComposerDraft(null);setComposer(true);
+  }
+  async function saveName(name:string){
+    if(!profile)return false;
+    return attempt(async()=>{await updateProfile({...profile,display_name:name});setMessage('Nombre actualizado.');});
+  }
+  async function savePassword(password:string){
+    return attempt(async()=>{const {error}=await requireDatabase().auth.updateUser({password});if(error)throw error;setMessage('Contraseña actualizada.');});
+  }
   async function finishProfile(e:React.FormEvent){
     e.preventDefault();if(!consent)return;
     await act(async()=>{
@@ -334,7 +405,7 @@ function Workspace({session}:{session:Session}) {
       {pending>0&&<p role="status">{pending} movimiento(s) pendiente(s). <button className="av-link" disabled={!online||busy} onClick={()=>act(flushQueue)}>Reintentar sincronización</button></p>}
       <div className="av-tab-panel" key={tab}>
       {tab==='garden'&&<>
-        <Garden goals={selectedGoals} groups={data.groups} selectedId={selectedGoalId} today={today} prefs={prefs} onSelect={setSelectedGoalId} onContribute={openComposer} onCreate={()=>setTab('goals')} watering={watering} celebration={celebration} plantKinds={plantKinds} onPlantChange={(goalId,kind)=>void choosePlant(goalId,kind)}/>
+        <Garden goals={selectedGoals} groups={data.groups} selectedId={selectedGoalId} today={today} prefs={prefs} onSelect={setSelectedGoalId} onContribute={openComposer} onCreate={()=>setTab('goals')} watering={watering} celebration={celebration} plantKinds={plantKinds} onPlantChange={(goalId,kind)=>void choosePlant(goalId,kind)} canManage={canManageGoal} onOptions={goal=>setGoalSettingsId(goal.id)}/>
         <div className="av-stats"><section className="av-card"><h2>Avance conjunto de tus metas</h2><strong>{soles(savedShown)}</strong><p>{selectedGoals.length} meta(s){isOverview?' personales y compartidas':selectedGroup?` de ${selectedGroup.name}`:' personales'}. Cada planta crece según su propio avance.</p></section>
           <section className="av-card av-budget-card"><h2>Tu presupuesto semanal</h2><p>Solo tus gastos de esta semana, de lunes a hoy.</p><BudgetGauge spent={spent} budget={prefs.weeklyBudget} movements={mine} today={today}/>
             <p>{spent>prefs.weeklyBudget?'Superaste el presupuesto que elegiste. Puedes revisar tus categorías y ajustar el próximo paso.':'Puedes revisar tus movimientos cuando lo necesites.'}</p></section></div>
@@ -343,27 +414,30 @@ function Workspace({session}:{session:Session}) {
         {isOverview&&<p>Al crear aquí una meta será personal. Para crear una meta compartida, elige su grupo en «Tu espacio».</p>}
         {(!selectedGroup||groupAdmin)&&<GoalForm groupId={selectedGroup?.id||''} busy={busy} onCreate={(title,amount,date,kind)=>act(async()=>{const problem=amountProblem(amount);if(problem)throw new Error(problem);const id=await rpc<string>('create_goal',{p_title:title,p_amount:amount,p_date:date,p_group:selectedGroup?.id||null});if(kind!=='cosmos')await savePlantKinds({...plantKinds,[id]:kind}).catch(()=>{});await refresh();setSelectedGoalId(id);setMessage('Meta creada. Plantamos una nueva maceta; el ahorro de tus otras metas se conserva.');})}/>}
         {!!selectedGroup&&!groupAdmin&&<p>El administrador crea las metas. Todos los miembros pueden aportar.</p>}
-        <div className="av-cards">{selectedGoals.map(g=><GoalCard key={g.id} goal={g} kind={plantKinds[g.id]} groups={data.groups} today={today} onView={()=>{setSelectedGoalId(g.id);setTab('garden');}} onContribute={()=>openComposer(g)}/>)}</div>
+        <div className="av-cards">{selectedGoals.map(g=><GoalCard key={g.id} goal={g} kind={plantKinds[g.id]} onOptions={canManageGoal(g)?()=>setGoalSettingsId(g.id):undefined} groups={data.groups} today={today} onView={()=>{setSelectedGoalId(g.id);setTab('garden');}} onContribute={()=>openComposer(g)}/>)}</div>
+        <ArchivedGoals goals={archivedGoals} busy={busy} canManage={canManageGoal} onRestore={restoreGoal} onDelete={goal=>void deleteGoal(goal)}/>
         {!selectedGoals.length&&<EmptyState title="Planta tu primera meta" text={!selectedGroup||groupAdmin?'Dale un nombre, un monto y una fecha. Verás crecer su maceta con cada aporte.':'Cuando el administrador cree una meta compartida, aparecerá aquí para que aportes.'}
           action={!selectedGroup||groupAdmin?{label:'Crear una meta',icon:<Target size={24} aria-hidden="true"/>,onClick:()=>{const form=document.getElementById('av-goal-form') as HTMLDetailsElement|null;if(form){form.open=true;form.querySelector('input')?.focus();}}}:undefined}/>}</>}
       {tab==='groups'&&<><h1>Ahorrar también es compartir</h1><p>Puedes pertenecer a varios grupos. Tus gastos personales se mantienen privados.</p>
         <GroupForms busy={busy} onCreate={name=>act(async()=>{const r=await rpc<{group_id:string}>('create_group',{p_name:name});await refresh();setGroupId(r.group_id);setMessage('Grupo creado. Ya puedes crear metas e invitar.');})}
           onJoin={code=>act(async()=>{const r=await rpc<{group_name:string;status:string}>('request_group_access',{p_code:code});await refresh();setMessage(`${r.group_name}: ${statusNames[r.status]||'Ya eres miembro'}.`);})}/>
-        <section className="av-card"><h2>Mis solicitudes</h2>{!data.requests.length?<p>No tienes solicitudes.</p>:data.requests.map(r=><p key={r.id}>{r.name} · <strong>{statusNames[r.status]}</strong></p>)}</section>
+        <section className="av-card"><h2>Mis solicitudes</h2>{!data.requests.length?<p>No tienes solicitudes.</p>:<ul className="av-request-list">{data.requests.map(r=><li key={r.id} className="av-request"><span>{r.name} · <strong>{statusNames[r.status]}</strong></span>{r.status==='pending'&&<button type="button" className="av-secondary" disabled={busy} onClick={()=>cancelRequest(r)} aria-label={`Cancelar la solicitud a ${r.name}`}>Cancelar solicitud</button>}</li>)}</ul>}</section>
         <h2>Grupos a los que perteneces</h2>{data.groups.length?<div className="av-cards">{data.groups.map(g=><GroupCard key={g.id} group={g} role={data.roles[g.id]} members={peopleByGroup[g.id]?.members||[]} goals={data.goals.filter(goal=>goal.group_id===g.id)} selected={g.id===groupId} onSelect={()=>setGroupId(g.id)}/>)}</div>:
           <EmptyState headingLevel={3} title="Todavía no compartes un jardín" text="Crea un grupo para ahorrar con tu familia o amigos, o pide ingreso con un código de invitación." action={{label:'Crear un grupo',icon:<Users size={24} aria-hidden="true"/>,onClick:()=>document.getElementById('av-group-name')?.focus()}}/>}
         {selectedGroup&&<section className="av-card"><h2>{selectedGroup.name}</h2><p>{people.members.length} integrante(s) · varias metas compartidas</p>
-          <ul>{people.members.map(m=><li key={m.user_id}>{m.name} · {m.role==='admin'?'Administrador':'Miembro'}</li>)}</ul>
+          <GroupManager key={selectedGroup.id} group={selectedGroup} members={people.members} userId={userId} admin={groupAdmin} busy={busy}
+            onRename={name=>renameGroup(selectedGroup,name)} onRole={(member,role)=>setMemberRole(selectedGroup,member,role)} onRemove={member=>void removeMember(selectedGroup,member)}
+            onLeave={()=>void leaveGroup(selectedGroup)} onClose={()=>void closeGroup(selectedGroup)}/>
           {groupAdmin&&<><h3>Invitaciones</h3><p>Compartir el código no concede acceso: debes aprobar la solicitud.</p>
             {data.invitations.filter(i=>i.group_id===groupId&&new Date(i.expires_at)>new Date()).map(i=><div className="av-invitation" key={i.id}><label>Código de invitación<input readOnly value={i.code} spellCheck={false} translate="no"/></label>
               <button className="av-secondary" onClick={()=>act(async()=>{await navigator.clipboard.writeText(`${location.origin}${location.pathname}?invite=${i.code}`);setMessage('Enlace copiado.');})}>Copiar enlace</button>
-              <button className="av-secondary" disabled={busy} onClick={()=>{if(window.confirm('¿Revocar este código? Quien lo tenga ya no podrá pedir ingreso; puedes crear uno nuevo cuando quieras.'))void act(async()=>{await rpc('revoke_group_invitation',{p_invitation:i.id});await refresh();setMessage('Invitación revocada.');});}}>Revocar código</button></div>)}
+              <button className="av-secondary" disabled={busy} onClick={async()=>{if(await confirm({title:'¿Revocar este código?',text:'Quien lo tenga ya no podrá pedir ingreso; puedes crear uno nuevo cuando quieras.',confirm:'Revocar código',danger:true}))void act(async()=>{await rpc('revoke_group_invitation',{p_invitation:i.id});await refresh();setMessage('Invitación revocada.');});}}>Revocar código</button></div>)}
             <button className="av-secondary" disabled={busy} onClick={()=>act(async()=>{await rpc('create_group_invitation',{p_group:groupId});await refresh();setMessage('Nueva invitación creada.');})}>Crear nueva invitación</button>
             <h3>Solicitudes de ingreso{people.requests.length>0&&<span className="av-count-badge">{people.requests.length}</span>}</h3>{!people.requests.length?<p>No hay solicitudes pendientes.</p>:people.requests.map(r=><div className="av-request" key={r.id}><strong>{r.name}</strong>
               <button disabled={busy} onClick={()=>act(async()=>{await rpc('decide_group_request',{p_request:r.id,p_approve:true});await refresh();setMessage('Solicitud aprobada.');})}>Aprobar</button>
-              <button className="av-secondary" disabled={busy} onClick={()=>{if(window.confirm(`¿Rechazar la solicitud de ${r.name}? Podrá volver a pedir ingreso con un código.`))void act(async()=>{await rpc('decide_group_request',{p_request:r.id,p_approve:false});await refresh();setMessage('Solicitud rechazada.');});}}>Rechazar</button></div>)}</>}
+              <button className="av-secondary" disabled={busy} onClick={async()=>{if(await confirm({title:`¿Rechazar la solicitud de ${r.name}?`,text:'Podrá volver a pedir ingreso con un código.',confirm:'Rechazar',danger:true}))void act(async()=>{await rpc('decide_group_request',{p_request:r.id,p_approve:false});await refresh();setMessage('Solicitud rechazada.');});}}>Rechazar</button></div>)}</>}
         </section>}</>}
-      {tab==='history'&&<MovementHistory snapshot={data} profile={profile} scope={groupId} busy={busy} onRegister={()=>openComposer()} onUndo={id=>act(async()=>{await rpc('reverse_movement',{p_id:id});await refresh();setMessage('Movimiento revertido; actualizamos el avance.');})}/>}
+      {tab==='history'&&<MovementHistory snapshot={rawData} onCorrect={openCorrection} online={online} profile={profile} scope={groupId} busy={busy} onRegister={()=>openComposer()} onUndo={id=>act(async()=>{await rpc('reverse_movement',{p_id:id});await refresh();setMessage('Movimiento revertido; actualizamos el avance.');})}/>}
       {tab==='assistant'&&<><h1>Un paso a la vez</h1><p>Soy el asistente de IA de Alcancía Viva. Puedo ayudarte a comprender tus registros; las propuestas no mueven dinero ni crean aportes.</p>
         {!chat.length&&<EmptyState title="Pregunta lo que quieras entender" text="Por ejemplo: «¿En qué gasté más esta semana?» o «¿Cuánto me falta para mi laptop?». Puedes escribir o dictar." action={{label:'Escribir una pregunta',icon:<MessageCircle size={24} aria-hidden="true"/>,onClick:()=>document.getElementById('av-assistant-question')?.focus()}}/>}
         <div role="log" aria-label="Conversación con el asistente" aria-live="polite">{chat.map((item,i)=><section className="av-card" key={i}><p><strong>Tú:</strong> {item.question}</p><AssistantAnswer answer={item.answer} highlight={!reducedMotion}/></section>)}</div>
@@ -379,18 +453,21 @@ function Workspace({session}:{session:Session}) {
           <button type="button" className="av-secondary av-with-icon" disabled={!SpeechService.isSynthesisSupported()} onClick={()=>SpeechService.speak('Así sonará Alcancía Viva cuando te lea una respuesta.',prefs.speechRate)}><Volume2 size={24} aria-hidden="true"/>Probar voz</button></div>
         <label>Presupuesto semanal en soles<input type="number" inputMode="decimal" autoComplete="off" min="1" max="999999.99" step="0.01" defaultValue={prefs.weeklyBudget} onBlur={e=>{const amount=Number(e.target.value);if(amount>0&&amount<MAX_AMOUNT)act(async()=>{await updateProfile({...profile,preferences:{...prefs,weeklyBudget:amount}});setMessage('Presupuesto actualizado.');});}}/></label>
         <p>Las correcciones de categoría se recuerdan. Tras tres correcciones iguales para la misma frase, se proponen en futuros registros.</p>
-        <button className="av-secondary" disabled={busy} onClick={()=>{if(window.confirm('¿Reiniciar las categorías aprendidas? Tus movimientos no cambian; solo se olvidan las sugerencias.'))void act(async()=>{await updateProfile({...profile,learned_categories:{}});setMessage('Aprendizaje de categorías reiniciado.');});}}>Reiniciar categorías aprendidas</button>
+        <button className="av-secondary" disabled={busy} onClick={async()=>{if(await confirm({title:'¿Reiniciar las categorías aprendidas?',text:'Tus movimientos no cambian; solo se olvidan las sugerencias.',confirm:'Reiniciar'}))void act(async()=>{await updateProfile({...profile,learned_categories:{}});setMessage('Aprendizaje de categorías reiniciado.');});}}>Reiniciar categorías aprendidas</button>
         <button className="av-secondary" onClick={()=>{const blob=new Blob([JSON.stringify({profile,movements:mine,goals:data.goals.filter(g=>g.owner_id===userId)},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='alcancia-viva-mis-datos.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}}>Descargar mis datos</button>
         <details><summary>Ayuda y privacidad</summary><p>Para registrar, elige gasto, ingreso o ahorro. Un ahorro requiere meta. Para compartir, crea un grupo o solicita ingreso con un código y espera aprobación. Puedes usar texto sin micrófono; todas las acciones son accesibles mediante teclado. Usamos datos de práctica. Si consultas a la IA, se envía tu pregunta y un resumen de tus registros a Groq.</p></details>
       </section>
-      <section className="av-card"><h2>Tu sesión</h2><p>Sesión iniciada como {profile.display_name}.</p>
-        <button type="button" className="av-secondary av-with-icon" onClick={signOut}><LogOut size={24} aria-hidden="true"/>Cerrar sesión</button></section></>}
+      <AccountSettings name={profile.display_name} email={session.user.email} busy={busy} onName={saveName} onPassword={savePassword} onSignOut={signOut}/></>}
       </div>
     </main></div>
     <Toast toast={toast} onDismiss={()=>setToast(null)}/>
+    {(()=>{const goal=data.goals.find(g=>g.id===goalSettingsId);return goal&&canManageGoal(goal)?<GoalSettings key={goal.id} goal={goal} kind={plantKinds[goal.id]||'cosmos'} busy={busy}
+      onSave={(title,amount,date)=>saveGoal(goal,title,amount,date)} onPlantChange={kind=>void choosePlant(goal.id,kind)}
+      onArchive={()=>archiveGoal(goal)} onDelete={()=>void deleteGoal(goal)} onClose={()=>setGoalSettingsId('')}/>:null;})()}
+    {confirmDialog}
     <button type="button" className="av-secondary av-fab-voice" aria-label="Hablar" data-voice-entry onClick={()=>{primeAudio();setVoiceOpen(true);}}><Mic size={24} aria-hidden="true"/></button>
     <button type="button" className="av-fab" aria-label="Registrar movimiento" aria-keyshortcuts="n" onClick={()=>openComposer()}><Plus size={24} aria-hidden="true"/></button>
-    {composer&&<MovementComposer data={data} profile={profile} groupId={selectedGroup?.id||''} initialGoalId={composerGoalId} initialDraft={composerDraft} audio={prefs.audio} onClose={()=>{setComposer(false);setComposerDraft(null);}} onSave={saveMovement}/>}
+    {composer&&<MovementComposer data={data} profile={profile} groupId={selectedGroup?.id||''} initialGoalId={composerGoalId} initialDraft={composerDraft} correction={correcting} audio={prefs.audio} onClose={()=>{setComposer(false);setComposerDraft(null);setCorrecting(null);}} onSave={correcting?(m=>saveCorrection(correcting,m)):saveMovement}/>}
     {voiceOpen&&<VoiceSheet reduced={reducedMotion} goals={data.goals} movements={mine} profile={profile} today={today} weeklyBudget={prefs.weeklyBudget} audio={prefs.audio}
       onNavigate={tab=>goTo(tab)} onAsk={question=>{goTo('assistant');void askQuestion(question);}} onSave={saveMovement}
       onOpenComposer={draft=>{setVoiceOpen(false);openComposer(undefined,draft);}} onClose={()=>setVoiceOpen(false)}/>}
@@ -406,17 +483,17 @@ function GroupForms({busy,onCreate,onJoin}:{busy:boolean;onCreate:(name:string)=
     <form className="av-card" onSubmit={e=>{e.preventDefault();onJoin(String(new FormData(e.currentTarget).get('code')));}}><h2>Unirme a un grupo</h2><label>Código de invitación<input name="code" required autoComplete="off" spellCheck={false} autoCapitalize="characters" defaultValue={new URLSearchParams(location.search).get('invite')||''}/></label><button disabled={busy}>Solicitar ingreso</button></form></div>;
 }
 
-function MovementComposer({data,profile,groupId,initialGoalId,initialDraft=null,audio,onClose,onSave}:{data:Snapshot;profile:Profile;groupId:string;initialGoalId:string;initialDraft?:VoiceDraft|null;audio:boolean;onClose:()=>void;onSave:(m:Movement,phrase:string,category:string)=>Promise<void>}) {
+function MovementComposer({data,profile,groupId,initialGoalId,initialDraft=null,correction=null,audio,onClose,onSave}:{data:Snapshot;profile:Profile;groupId:string;initialGoalId:string;initialDraft?:VoiceDraft|null;correction?:Movement|null;audio:boolean;onClose:()=>void;onSave:(m:Movement,phrase:string,category:string)=>Promise<void>}) {
   const dialog=useRef<HTMLDialogElement>(null),phraseInput=useRef<HTMLTextAreaElement>(null);
   const previousFocus=useRef(document.activeElement as HTMLElement|null);
   const id=useRef(crypto.randomUUID()),processing=useRef(false);
   const preset=movementPreset(data.goals,groupId,initialGoalId);
   // Borrador que llega desde la voz («Prefiero escribir», «No, corregir» o repreguntas agotadas).
-  const draftGoal=initialDraft?.goalId?data.goals.find(g=>g.id===initialDraft.goalId):undefined;
-  const [phrase,setPhrase]=useState(initialDraft?.text||''),[type,setType]=useState<Movement['type']|''>(initialDraft?initialDraft.type:preset.type),[amount,setAmount]=useState(initialDraft?.amount?String(initialDraft.amount):''),[category,setCategory]=useState(initialDraft?.category||'');
-  const [goalId,setGoalId]=useState(draftGoal?draftGoal.id:preset.goalId),[destination,setDestination]=useState(draftGoal?draftGoal.group_id||'':preset.destination),[source,setSource]=useState<Movement['source']>(initialDraft?'voice':'manual');
-  const [error,setError]=useState(''),[info,setInfo]=useState(initialDraft?'Revisa lo que entendí por voz y completa lo que falte antes de guardar.':''),[busy,setBusy]=useState(false),[originalCategory,setOriginalCategory]=useState('');
-  const [date,setDate]=useState(localDate());
+  const draftGoal=initialDraft?.goalId?data.goals.find(g=>g.id===initialDraft.goalId):correction?.goal_id?data.goals.find(g=>g.id===correction.goal_id):undefined;
+  const [phrase,setPhrase]=useState(correction?.description??initialDraft?.text??''),[type,setType]=useState<Movement['type']|''>(correction?correction.type:initialDraft?initialDraft.type:preset.type),[amount,setAmount]=useState(correction?String(correction.amount):initialDraft?.amount?String(initialDraft.amount):''),[category,setCategory]=useState(correction?.category||initialDraft?.category||'');
+  const [goalId,setGoalId]=useState(draftGoal?draftGoal.id:preset.goalId),[destination,setDestination]=useState(draftGoal?draftGoal.group_id||'':preset.destination),[source,setSource]=useState<Movement['source']>(correction?.source||(initialDraft?'voice':'manual'));
+  const [error,setError]=useState(''),[info,setInfo]=useState(correction?'Cambia lo que necesites. Al guardar, el registro anterior queda como revertido en el historial.':initialDraft?'Revisa lo que entendí por voz y completa lo que falte antes de guardar.':''),[busy,setBusy]=useState(false),[originalCategory,setOriginalCategory]=useState('');
+  const [date,setDate]=useState(correction?.occurred_on||localDate());
   const dictation=useDictation({onText:setPhrase,onDone:text=>applyInterpretation(text,true),maxLength:500,messages:movementDictation});
   const listening=dictation.listening;
   const sheetDrag=useSheetDrag(dialog,{onClose,disabled:busy});
@@ -462,7 +539,7 @@ function MovementComposer({data,profile,groupId,initialGoalId,initialDraft=null,
   const goals=data.goals.filter(g=>g.group_id===(destination||null));
   return <dialog ref={dialog} className="av-dialog" aria-labelledby="movement-title" onCancel={e=>{if(busy)e.preventDefault();else onClose();}}>
     <div className="av-sheet-grip" {...sheetDrag}><span className="av-sheet-handle" aria-hidden="true"/>
-      <div className="av-dialog-title"><h2 id="movement-title">Registrar movimiento</h2><button type="button" className="av-secondary" onClick={onClose} disabled={busy} aria-label="Cerrar registro">Cerrar</button></div></div>
+      <div className="av-dialog-title"><h2 id="movement-title">{correction?'Corregir movimiento':'Registrar movimiento'}</h2><button type="button" className="av-secondary" onClick={onClose} disabled={busy} aria-label="Cerrar registro">Cerrar</button></div></div>
     <p>Puedes hablar, escribir o completar los datos. Confirma el destino antes de guardar.</p>
     <label>Describe tu movimiento<textarea ref={phraseInput} value={phrase} onChange={e=>setPhrase(e.target.value)} placeholder="Ahorré 100 soles para mi laptop…" maxLength={500}/></label>
     <div className="av-actions"><button type="button" className="av-secondary" aria-pressed={listening} onClick={voice} disabled={busy}>{listening?'Detener micrófono':'Dictar movimiento'}</button><button type="button" disabled={busy||!phrase.trim()} onClick={interpret}>{busy?'Interpretando…':'Interpretar texto'}</button></div>
@@ -473,7 +550,7 @@ function MovementComposer({data,profile,groupId,initialGoalId,initialDraft=null,
       {type==='savings'?<><label>Espacio del ahorro<select value={destination} onChange={e=>{setDestination(e.target.value);setGoalId('');}}><option value="">Personal</option>{data.groups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select></label><label>Meta de destino<select value={goalId} required onChange={e=>setGoalId(e.target.value)}><option value="">¿A qué meta quieres aportar?</option>{goals.map(g=><option value={g.id} key={g.id}>{g.title}</option>)}</select></label>{!goals.length&&<p>Crea una meta en este espacio antes de registrar el ahorro.</p>}</>:<label>Categoría<input list="av-categories" required autoComplete="off" value={category} maxLength={100} onChange={e=>setCategory(e.target.value)}/><datalist id="av-categories">{['Alimentación','Transporte','Educación','Salud','Trabajo','Ocio','Servicios','Otros'].map(c=><option value={c} key={c}/>)}</datalist></label>}
       {error&&<p role="alert" className="av-error">{error}</p>}
       <p className={`av-review ${type?`av-tone-${MOVEMENT_META[type].tone}`:''}`}>{type&&<MovementTypeIcon type={type} size={20}/>}<span>{type?movementNames[type]:'Movimiento'} · {soles(Number(amount)||0)} · {type==='savings'?(data.goals.find(g=>g.id===goalId)?.title||'Falta elegir una meta'):(category||'Falta categoría')}</span></p>
-      <button disabled={busy||listening}>{busy?'Procesando…':'Confirmar y guardar'}</button>
+      <button disabled={busy||listening}>{busy?'Procesando…':correction?'Guardar corrección':'Confirmar y guardar'}</button>
     </form>
   </dialog>;
 }
