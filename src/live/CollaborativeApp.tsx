@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js';
 import { database, requireDatabase, rpc, loadSnapshot, emptySnapshot, passwordRecovery } from './client';
 import { PasswordRecovery, RecoveryEmailForm } from './PasswordRecovery';
 import { cleanRecoveryUrl } from './recoveryFlow';
+import { amountProblem, amountTooLarge, friendlyError, MAX_AMOUNT, safeStorage } from './errors';
 import type { Snapshot, Profile, Preferences, Movement, Member, Request, Goal } from './client';
 import { interpretLocally, learningKey, localDate, soles, weekExpenses } from './domain';
 import { ALL_SPACES, gardenSummary, goalsForScope, movementPreset } from './garden';
@@ -63,7 +64,7 @@ const movementDictation: Partial<DictationMessages> = {
     'network':'No se pudo conectar el reconocimiento de voz. Puedes escribir tu movimiento.',
   },
 };
-const errorMessage = (e:unknown) => e instanceof Error ? e.message : 'No pudimos completar la acción. Conservamos tus datos para reintentar.';
+const errorMessage = (e:unknown) => friendlyError(e);
 
 function BrandIcon() {
   return <img className="av-brand-icon" src="/brand/piggy-bank.svg" alt="" aria-hidden="true" width={40} height={40}/>;
@@ -98,12 +99,12 @@ function Auth() {
       const db=requireDatabase();
       if(signup) {
         if(!consent)throw new Error('Acepta el tratamiento de tus datos para crear tu cuenta.');
-        const {data,error}=await db.auth.signUp({email,password,options:{data:{display_name:name.trim(),consent_at:new Date().toISOString()}}});
+        const {data,error}=await db.auth.signUp({email,password,options:{emailRedirectTo:`${location.origin}/`,data:{display_name:name.trim(),consent_at:new Date().toISOString()}}});
         if(error)throw error;
         if(!data.session)setMessage('Revisa tu correo para confirmar la cuenta. Después vuelve aquí e inicia sesión.');
       } else {
         const {error}=await db.auth.signInWithPassword({email,password});
-        if(error)throw new Error(error.message==='Invalid login credentials'?'Correo o contraseña incorrectos.':error.message);
+        if(error)throw error;
       }
     }catch(e){setError(errorMessage(e));}finally{setBusy(false);}
   }
@@ -184,12 +185,12 @@ function Workspace({session}:{session:Session}) {
   const refresh=useCallback(async()=>{
     const version=++reloadCounter.current;
     const snapshot=await loadSnapshot(userId);
-    if(version===reloadCounter.current){setData(snapshot);localStorage.setItem(`av-snapshot-${userId}`,JSON.stringify(snapshot));}
+    if(version===reloadCounter.current){setData(snapshot);safeStorage.set(`av-snapshot-${userId}`,JSON.stringify(snapshot));}
   },[userId]);
   const readQueue=useCallback(():Movement[]=>{
-    try{return JSON.parse(localStorage.getItem(queueKey)||'[]');}catch{return [];}
+    const q=safeStorage.json<Movement[]>(queueKey,[]);return Array.isArray(q)?q:[];
   },[queueKey]);
-  const writeQueue=(q:Movement[])=>{localStorage.setItem(queueKey,JSON.stringify(q));setPending(q.length);};
+  const writeQueue=(q:Movement[])=>{safeStorage.set(queueKey,JSON.stringify(q));setPending(q.length);};
   async function saveRemote(m:Movement){await rpc('record_movement',{p_id:m.id,p_type:m.type,p_amount:m.amount,p_category:m.category,p_description:m.description,p_date:m.occurred_on,p_source:m.source,p_goal:m.goal_id});}
   async function flushQueue(){
     for(const m of readQueue()){
@@ -203,8 +204,8 @@ function Workspace({session}:{session:Session}) {
     (async()=>{
       try{
         const {data,error}=await requireDatabase().from('profiles').select('*').eq('id',userId).maybeSingle();
-        if(error)throw error;if(alive){setProfile(data);if(data)localStorage.setItem(`av-profile-${userId}`,JSON.stringify(data));}
-      }catch(e){if(alive){try{setProfile(JSON.parse(localStorage.getItem(`av-profile-${userId}`)||'null'));setData(JSON.parse(localStorage.getItem(`av-snapshot-${userId}`)||'null')||emptySnapshot);}catch{}setError(navigator.onLine?errorMessage(e):'Estás sin conexión. Puedes registrar por texto y sincronizar después.');}}finally{if(alive)setProfileReady(true);}
+        if(error)throw error;if(alive){setProfile(data);if(data)safeStorage.set(`av-profile-${userId}`,JSON.stringify(data));}
+      }catch(e){if(alive){setProfile(safeStorage.json<Profile|null>(`av-profile-${userId}`,null));setData(safeStorage.json<Snapshot|null>(`av-snapshot-${userId}`,null)||emptySnapshot);setError(navigator.onLine?errorMessage(e):'Estás sin conexión. Puedes registrar por texto y sincronizar después.');}}finally{if(alive)setProfileReady(true);}
     })();
     setPending(readQueue().length);
     return()=>{alive=false;reloadCounter.current++;};
@@ -249,7 +250,7 @@ function Workspace({session}:{session:Session}) {
     const previous=profile;
     setProfile(next);
     const {error}=await requireDatabase().from('profiles').upsert(next);
-    if(error){setProfile(previous);throw error;}localStorage.setItem(`av-profile-${userId}`,JSON.stringify(next));
+    if(error){setProfile(previous);throw error;}safeStorage.set(`av-profile-${userId}`,JSON.stringify(next));
   }
   async function finishProfile(e:React.FormEvent){
     e.preventDefault();if(!consent)return;
@@ -259,6 +260,7 @@ function Workspace({session}:{session:Session}) {
     });
   }
   async function saveMovement(m:Movement,phrase:string,originalCategory:string){
+    const problem=amountProblem(m.amount);if(problem)throw new Error(problem);
     if(!online){writeQueue([...readQueue(),m]);setMessage('Guardado como pendiente en este dispositivo. Se sincronizará al recuperar conexión.',{type:m.type,tone:'info'});return;}
     const target=m.type==='savings'?data.goals.find(g=>g.id===m.goal_id):undefined;
     await saveRemote(m);
@@ -327,7 +329,7 @@ function Workspace({session}:{session:Session}) {
       </>}
       {tab==='goals'&&<><h1>{selectedGroup?`Metas de ${selectedGroup.name}`:'Mis metas'}</h1><p>Un ahorro se suma únicamente a la meta que confirmes.</p>
         {isOverview&&<p>Al crear aquí una meta será personal. Para crear una meta compartida, elige su grupo en «Tu espacio».</p>}
-        {(!selectedGroup||groupAdmin)&&<GoalForm groupId={selectedGroup?.id||''} busy={busy} onCreate={(title,amount,date)=>act(async()=>{const id=await rpc<string>('create_goal',{p_title:title,p_amount:amount,p_date:date,p_group:selectedGroup?.id||null});await refresh();setSelectedGoalId(id);setMessage('Meta creada. Plantamos una nueva maceta; el ahorro de tus otras metas se conserva.');})}/>}
+        {(!selectedGroup||groupAdmin)&&<GoalForm groupId={selectedGroup?.id||''} busy={busy} onCreate={(title,amount,date)=>act(async()=>{const problem=amountProblem(amount);if(problem)throw new Error(problem);const id=await rpc<string>('create_goal',{p_title:title,p_amount:amount,p_date:date,p_group:selectedGroup?.id||null});await refresh();setSelectedGoalId(id);setMessage('Meta creada. Plantamos una nueva maceta; el ahorro de tus otras metas se conserva.');})}/>}
         {!!selectedGroup&&!groupAdmin&&<p>El administrador crea las metas. Todos los miembros pueden aportar.</p>}
         <div className="av-cards">{selectedGoals.map(g=><GoalCard key={g.id} goal={g} groups={data.groups} today={today} onView={()=>{setSelectedGoalId(g.id);setTab('garden');}} onContribute={()=>openComposer(g)}/>)}</div>
         {!selectedGoals.length&&<EmptyState title="Planta tu primera meta" text={!selectedGroup||groupAdmin?'Dale un nombre, un monto y una fecha. Verás crecer su maceta con cada aporte.':'Cuando el administrador cree una meta compartida, aparecerá aquí para que aportes.'}
@@ -363,7 +365,7 @@ function Workspace({session}:{session:Session}) {
         <div className="av-rate"><label>Velocidad de la voz<select value={String(prefs.speechRate)} disabled={busy} onChange={e=>{const speechRate=Number(e.target.value);act(async()=>{await updateProfile({...profile,preferences:{...prefs,speechRate} as Profile['preferences']});setMessage('Velocidad de la voz guardada.');});}}>
           {SPEECH_RATES.map(rate=><option key={rate} value={String(rate)}>{rate===1?'Normal (1×)':`${rate.toLocaleString('es-PE')}×${rate<1?' (más lenta)':' (más rápida)'}`}</option>)}</select></label>
           <button type="button" className="av-secondary av-with-icon" disabled={!SpeechService.isSynthesisSupported()} onClick={()=>SpeechService.speak('Así sonará Alcancía Viva cuando te lea una respuesta.',prefs.speechRate)}><Volume2 size={24} aria-hidden="true"/>Probar voz</button></div>
-        <label>Presupuesto semanal en soles<input type="number" inputMode="decimal" autoComplete="off" min="1" step="0.01" defaultValue={prefs.weeklyBudget} onBlur={e=>{const amount=Number(e.target.value);if(amount>0)act(async()=>{await updateProfile({...profile,preferences:{...prefs,weeklyBudget:amount}});setMessage('Presupuesto actualizado.');});}}/></label>
+        <label>Presupuesto semanal en soles<input type="number" inputMode="decimal" autoComplete="off" min="1" max="999999.99" step="0.01" defaultValue={prefs.weeklyBudget} onBlur={e=>{const amount=Number(e.target.value);if(amount>0&&amount<MAX_AMOUNT)act(async()=>{await updateProfile({...profile,preferences:{...prefs,weeklyBudget:amount}});setMessage('Presupuesto actualizado.');});}}/></label>
         <p>Las correcciones de categoría se recuerdan. Tras tres correcciones iguales para la misma frase, se proponen en futuros registros.</p>
         <button className="av-secondary" disabled={busy} onClick={()=>{if(window.confirm('¿Reiniciar las categorías aprendidas? Tus movimientos no cambian; solo se olvidan las sugerencias.'))void act(async()=>{await updateProfile({...profile,learned_categories:{}});setMessage('Aprendizaje de categorías reiniciado.');});}}>Reiniciar categorías aprendidas</button>
         <button className="av-secondary" onClick={()=>{const blob=new Blob([JSON.stringify({profile,movements:mine,goals:data.goals.filter(g=>g.owner_id===userId)},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='alcancia-viva-mis-datos.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}}>Descargar mis datos</button>
@@ -385,7 +387,7 @@ function Workspace({session}:{session:Session}) {
 
 function GoalForm({groupId,busy,onCreate}:{groupId:string;busy:boolean;onCreate:(title:string,amount:number,date:string)=>Promise<void>}) {
   return <details className="av-card" id="av-goal-form" key={groupId}><summary>Crear una meta</summary><form onSubmit={async e=>{e.preventDefault();const form=e.currentTarget;const f=new FormData(form);await onCreate(String(f.get('title')),Number(f.get('amount')),String(f.get('date')));}}>
-    <label>Nombre de la meta<input name="title" required maxLength={100} autoComplete="off"/></label><label>Monto objetivo (S/)<input name="amount" type="number" inputMode="decimal" autoComplete="off" min="0.01" step="0.01" required/></label><label>Fecha objetivo<input name="date" type="date" min={localDate()} required/></label><button disabled={busy}>Crear meta</button></form></details>;
+    <label>Nombre de la meta<input name="title" required maxLength={100} autoComplete="off"/></label><label>Monto objetivo (S/)<input name="amount" type="number" inputMode="decimal" autoComplete="off" min="0.01" max="999999.99" step="0.01" required/></label><label>Fecha objetivo<input name="date" type="date" min={localDate()} required/></label><button disabled={busy}>Crear meta</button></form></details>;
 }
 function GroupForms({busy,onCreate,onJoin}:{busy:boolean;onCreate:(name:string)=>Promise<void>;onJoin:(code:string)=>Promise<void>}) {
   return <div className="av-cards"><form className="av-card" onSubmit={e=>{e.preventDefault();onCreate(String(new FormData(e.currentTarget).get('name')));}}><h2>Crear un grupo</h2><label>Nombre del grupo<input id="av-group-name" name="name" required maxLength={100} autoComplete="off"/></label><button disabled={busy}>Crear grupo</button></form>
@@ -434,6 +436,7 @@ function MovementComposer({data,profile,groupId,initialGoalId,initialDraft=null,
     e.preventDefault();setError('');
     const value=Number(amount);
     if(!type||!Number.isFinite(value)||value<=0){setError('Elige el tipo e ingresa un monto mayor que cero.');return;}
+    if(value>=MAX_AMOUNT){setError(amountTooLarge);return;}
     if(type==='savings'&&!data.goals.some(g=>g.id===goalId&&g.group_id===(destination||null))){setError('Selecciona el espacio y la meta a la que aportarás.');return;}
     if(type!=='savings'&&!category.trim()){setError('Indica la categoría.');return;}
     setBusy(true);
@@ -454,7 +457,7 @@ function MovementComposer({data,profile,groupId,initialGoalId,initialDraft=null,
     <p role="status" aria-live="polite">{listening?dictation.status:(info||dictation.status)}</p>
     <form onSubmit={submit}>
       <label>Tipo de movimiento<select value={type} required onChange={e=>setType(e.target.value as Movement['type'])}><option value="">Selecciona el tipo</option><option value="expense">Gasto</option><option value="income">Ingreso</option><option value="savings">Ahorro para una meta</option></select></label>
-      <div className="av-fields"><label>Monto en soles<input type="number" inputMode="decimal" autoComplete="off" min="0.01" step="0.01" required value={amount} onChange={e=>setAmount(e.target.value)}/></label><label>Fecha<input type="date" required value={date} onChange={e=>setDate(e.target.value)}/></label></div>
+      <div className="av-fields"><label>Monto en soles<input type="number" inputMode="decimal" autoComplete="off" min="0.01" max="999999.99" step="0.01" required value={amount} onChange={e=>setAmount(e.target.value)}/></label><label>Fecha<input type="date" required value={date} onChange={e=>setDate(e.target.value)}/></label></div>
       {type==='savings'?<><label>Espacio del ahorro<select value={destination} onChange={e=>{setDestination(e.target.value);setGoalId('');}}><option value="">Personal</option>{data.groups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select></label><label>Meta de destino<select value={goalId} required onChange={e=>setGoalId(e.target.value)}><option value="">¿A qué meta quieres aportar?</option>{goals.map(g=><option value={g.id} key={g.id}>{g.title}</option>)}</select></label>{!goals.length&&<p>Crea una meta en este espacio antes de registrar el ahorro.</p>}</>:<label>Categoría<input list="av-categories" required autoComplete="off" value={category} maxLength={100} onChange={e=>setCategory(e.target.value)}/><datalist id="av-categories">{['Alimentación','Transporte','Educación','Salud','Trabajo','Ocio','Servicios','Otros'].map(c=><option value={c} key={c}/>)}</datalist></label>}
       {error&&<p role="alert" className="av-error">{error}</p>}
       <p className={`av-review ${type?`av-tone-${MOVEMENT_META[type].tone}`:''}`}>{type&&<MovementTypeIcon type={type} size={20}/>}<span>{type?movementNames[type]:'Movimiento'} · {soles(Number(amount)||0)} · {type==='savings'?(data.goals.find(g=>g.id===goalId)?.title||'Falta elegir una meta'):(category||'Falta categoría')}</span></p>

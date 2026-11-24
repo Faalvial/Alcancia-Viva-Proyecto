@@ -1,0 +1,7 @@
+# Configuración mínima para `supabase functions deploy`.
+# El asistente valida la sesión dentro de la función; la verificación JWT del gateway
+# se desactiva para que funcione con las claves publicables (sb_publishable_…).
+project_id = "haqdsmtildbcubvtitfk"
+
+[functions.financial-assistant]
+verify_jwt = false

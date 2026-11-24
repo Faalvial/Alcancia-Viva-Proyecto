@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { CollaborativeApp } from './live/CollaborativeApp';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
 import { initTheme } from './hooks/useTheme';
 
@@ -22,6 +23,8 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <CollaborativeApp />
+    <ErrorBoundary>
+      <CollaborativeApp />
+    </ErrorBoundary>
   </React.StrictMode>
 );

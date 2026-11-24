@@ -1481,3 +1481,7 @@
     display: none !important;
   }
 }
+
+/* Pantalla de rescate (ErrorBoundary) */
+.av-crash { display: grid; place-items: center; min-height: 100dvh; padding: var(--av-space-5); }
+.av-crash .av-card { max-width: 32rem; }
