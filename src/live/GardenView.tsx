@@ -2,25 +2,30 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Goal, Group, Preferences } from './client';
 import { soles } from './domain';
-import { GROWTH_STAGES, gardenNumber, goalPercent, growthStage, gardenSummary, goalPace, goalDateLabel } from './garden';
+import { gardenNumber, goalPercent, growthStage, gardenSummary, goalPace, goalDateLabel } from './garden';
 import { SpeechService } from '../services/voice/speechService';
 import { goalRemaining } from './timeline';
 import { GoalRing } from '../components/GoalRing';
 import { usePreviousStage } from '../hooks/usePreviousStage';
 import { useCountUp } from '../hooks/useCountUp';
+import { PlantArt } from '../components/PlantArt';
+import { PlantPicker } from '../components/PlantPicker';
+import { speciesOf } from './plants';
+import type { PlantKind } from './plants';
 import './garden.css';
 
-function StageSprite({stage,index,className=''}:{stage:number;index:number;className?:string}) {
+function StageSprite({stage,index,kind,className=''}:{stage:number;index:number;kind:PlantKind;className?:string}) {
+  if(kind!=='cosmos')return <PlantArt kind={kind} stage={stage} className={`ag-stage ${className}`} style={{'--ag-delay':`${index*-.85}s`} as React.CSSProperties}/>;
   const style={'--ag-position':`${[0,50,100][stage%3]}% ${stage<3?0:100}%`,'--ag-delay':`${index*-.85}s`} as React.CSSProperties;
   return <span className={`ag-stage ${stage<3?'ag-top-row':''} ${className}`} style={style}><span className="ag-vessel"/><span className="ag-foliage"/></span>;
 }
 /** Maceta con el sprite de su etapa; al subir de etapa hace un fundido cruzado con escala (600 ms). */
-export function Plant({percent,index=0}:{percent:number;index?:number}) {
+export function Plant({percent,index=0,kind='cosmos'}:{percent:number;index?:number;kind?:PlantKind}) {
   const stage=growthStage(percent);
   const transition=usePreviousStage(stage);
   return <span className={`ag-plant ${transition?'ag-plant-growing':''}`} aria-hidden="true">
-    {transition&&<StageSprite key={`out-${transition.key}`} stage={transition.from} index={index} className="ag-stage-out"/>}
-    <StageSprite key={transition?`in-${transition.key}`:'stage'} stage={stage} index={index} className={transition?'ag-stage-in':''}/>
+    {transition&&<StageSprite key={`out-${transition.key}`} stage={transition.from} index={index} kind={kind} className="ag-stage-out"/>}
+    <StageSprite key={transition?`in-${transition.key}`:`stage-${kind}`} stage={stage} index={index} kind={kind} className={transition?'ag-stage-in':''}/>
   </span>;
 }
 
@@ -43,13 +48,17 @@ interface GardenProps {
   onSelect:(id:string)=>void; onContribute:(goal:Goal)=>void; onCreate:()=>void;
   watering:{goalId:string;nonce:number}|null;
   celebration?:{goalId:string;nonce:number}|null;
+  plantKinds?:Record<string,PlantKind>;
+  onPlantChange?:(goalId:string,kind:PlantKind)=>void;
 }
-export function Garden({goals,groups,selectedId,today,prefs,onSelect,onContribute,onCreate,watering,celebration=null}:GardenProps) {
+export function Garden({goals,groups,selectedId,today,prefs,onSelect,onContribute,onCreate,watering,celebration=null,plantKinds={},onPlantChange}:GardenProps) {
   const [paused,setPaused]=useState(false),[systemReduced,setSystemReduced]=useState(()=>matchMedia('(prefers-reduced-motion: reduce)').matches);
   useEffect(()=>{const query=matchMedia('(prefers-reduced-motion: reduce)');const change=()=>setSystemReduced(query.matches);query.addEventListener('change',change);return()=>query.removeEventListener('change',change);},[]);
   const selected=goals.find(goal=>goal.id===selectedId)||goals[0];
   const summary=gardenSummary(goals),value=selected?goalPercent(selected):0;
-  const stage=GROWTH_STAGES[growthStage(value)],rhythm=selected?goalPace(selected,today):null;
+  const kindOf=(goal:Goal|undefined)=>(goal&&plantKinds[goal.id])||'cosmos';
+  const species=speciesOf(kindOf(selected)),stageIndex=growthStage(value);
+  const stage={name:species.stages[stageIndex],message:species.messages[stageIndex]},rhythm=selected?goalPace(selected,today):null;
   const page=Math.max(0,Math.floor(goals.findIndex(goal=>goal.id===selected?.id)/8));
   const visible=goals.slice(page*8,page*8+8);
   const reduced=prefs.reducedMotion||systemReduced,stopped=paused||reduced;
@@ -68,8 +77,8 @@ export function Garden({goals,groups,selectedId,today,prefs,onSelect,onContribut
         {celebration&&!reduced&&<PetalRain key={celebration.nonce}/>}
         <div className="ag-scene-heading"><span>EL JARDÍN DE TUS METAS</span><p>{summary.label}</p></div>
         <div className="ag-pots" role="group" aria-label="Macetas de tus metas">
-          {visible.map((goal,index)=>{const amount=goalPercent(goal),phase=GROWTH_STAGES[growthStage(amount)];return <button type="button" className="ag-pot" key={goal.id} data-goal={goal.id} aria-pressed={goal.id===selected?.id} aria-controls="av-garden-detail" aria-label={`${goal.title}. ${groupLabel(goal,groups)}. ${gardenNumber(amount)} por ciento. ${phase.name}. Ver estado.`} onClick={()=>onSelect(goal.id)}>
-            <Plant percent={amount} index={index}/><span className="ag-plant-label"><strong>{goal.title}</strong><small>{groupLabel(goal,groups)}</small><b>{gardenNumber(amount)} %</b></span>
+          {visible.map((goal,index)=>{const amount=goalPercent(goal),kind=speciesOf(kindOf(goal)),phase={name:kind.stages[growthStage(amount)]};return <button type="button" className="ag-pot" key={goal.id} data-goal={goal.id} aria-pressed={goal.id===selected?.id} aria-controls="av-garden-detail" aria-label={`${goal.title}. ${groupLabel(goal,groups)}. ${gardenNumber(amount)} por ciento. ${kind.name}, ${phase.name}. Ver estado.`} onClick={()=>onSelect(goal.id)}>
+            <Plant percent={amount} index={index} kind={kind.id}/><span className="ag-plant-label"><strong>{goal.title}</strong><small>{groupLabel(goal,groups)}</small><b>{gardenNumber(amount)} %</b></span>
             {watering?.goalId===goal.id&&!stopped&&<span key={watering.nonce} className="ag-watering" aria-hidden="true">{[0,1,2,3,4,5].map(i=><i key={i} style={{'--i':i} as React.CSSProperties}/>)}</span>}
           </button>;})}
           {!goals.length&&<div className="ag-empty"><p>Aquí crecerá tu próxima meta.</p><button onClick={onCreate}>Plantar mi primera meta</button></div>}
@@ -90,13 +99,14 @@ export function Garden({goals,groups,selectedId,today,prefs,onSelect,onContribut
       <dl className="ag-deadline"><div><dt>Fecha objetivo</dt><dd>{goalDateLabel(selected.target_date)}</dd></div><div><dt>Tiempo transcurrido</dt><dd>{rhythm.expected===null?'Sin referencia de plazo':`${gardenNumber(rhythm.expected)} % del plazo`}</dd></div></dl>
       <button className="ag-contribute" onClick={()=>onContribute(selected)}>Registrar un aporte <span aria-hidden="true">↗</span></button>
       <p className="ag-confirm-help">El aporte irá a <strong>{selected.title}</strong>. Revisarás el monto antes de guardarlo.</p>
+      {onPlantChange&&<PlantPicker key={selected.id} legend="Tipo de planta" value={kindOf(selected)} onChange={kind=>onPlantChange(selected.id,kind)}/>}
     </section>}
     </div>
     <p className="ag-sr-only" role="status" aria-live="polite">{selected?`Maceta seleccionada: ${selected.title}. ${gardenNumber(value)} por ciento. ${stage.name}. ${rhythm?.label}.`:'Aún no hay metas en este espacio.'}</p>
   </section>;
 }
 
-export function GoalCard({goal,groups,today,onView,onContribute}:{goal:Goal;groups:Group[];today:string;onView:()=>void;onContribute:()=>void}) {
-  const value=goalPercent(goal),stageIndex=growthStage(value),phase=GROWTH_STAGES[stageIndex],remaining=goalRemaining(goal);
-  return <article className={`av-goal-card av-stage-${stageIndex}`}><div className="ag-card-art"><Plant percent={value}/><span className="ag-card-type">{groupLabel(goal,groups)}</span><GoalRing percent={value} stage={stageIndex} label={`${gardenNumber(value)} %`}/></div><div className="ag-card-body"><h2>{goal.title}</h2><p>{soles(goal.current_amount)} de {soles(goal.target_amount)}</p><p className="av-goal-remaining">{remaining>0?`Te faltan ${soles(remaining)}`:'Meta completa: tu planta floreció.'}</p><div className="ag-progress-title"><span>{phase.name}</span><strong>{gardenNumber(value)} %</strong></div><progress max={100} value={value} aria-label={`Avance de ${goal.title}`}/><p>{goalPace(goal,today).label}</p><p>Fecha objetivo: {goalDateLabel(goal.target_date)}</p><div className="ag-card-actions"><button className="av-secondary" aria-label={`Ver la maceta de ${goal.title}`} onClick={onView}>Ver mi maceta</button><button aria-label={`Registrar un aporte para ${goal.title}`} onClick={onContribute}>Registrar un aporte</button></div></div></article>;
+export function GoalCard({goal,groups,today,onView,onContribute,kind='cosmos'}:{goal:Goal;groups:Group[];today:string;onView:()=>void;onContribute:()=>void;kind?:PlantKind}) {
+  const value=goalPercent(goal),stageIndex=growthStage(value),phase={name:speciesOf(kind).stages[stageIndex]},remaining=goalRemaining(goal);
+  return <article className={`av-goal-card av-stage-${stageIndex}`}><div className="ag-card-art"><Plant percent={value} kind={kind}/><span className="ag-card-type">{groupLabel(goal,groups)}</span><GoalRing percent={value} stage={stageIndex} label={`${gardenNumber(value)} %`}/></div><div className="ag-card-body"><h2>{goal.title}</h2><p>{soles(goal.current_amount)} de {soles(goal.target_amount)}</p><p className="av-goal-remaining">{remaining>0?`Te faltan ${soles(remaining)}`:`Meta completa: ${speciesOf(kind).stages[5].toLocaleLowerCase('es-PE')}.`}</p><div className="ag-progress-title"><span>{phase.name}</span><strong>{gardenNumber(value)} %</strong></div><progress max={100} value={value} aria-label={`Avance de ${goal.title}`}/><p>{goalPace(goal,today).label}</p><p>Fecha objetivo: {goalDateLabel(goal.target_date)}</p><div className="ag-card-actions"><button className="av-secondary" aria-label={`Ver la maceta de ${goal.title}`} onClick={onView}>Ver mi maceta</button><button aria-label={`Registrar un aporte para ${goal.title}`} onClick={onContribute}>Registrar un aporte</button></div></div></article>;
 }

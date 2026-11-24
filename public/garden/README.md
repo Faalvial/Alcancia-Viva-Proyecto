@@ -19,3 +19,9 @@ Las imágenes anteriores se conservan para la bienvenida y la referencia visual 
 Estos recursos se generaron con la herramienta integrada de imágenes y se optimizaron a WebP conservando el canal alfa. Se muestran como capas con apariencia tridimensional, sin modelos 3D navegables. [Prompts de generación y ajuste](../../docs/jardin-assets-prompts.json).
 
 Cada meta tiene una maceta de tamaño constante: solo crece el follaje. Las seis etapas dependen del porcentaje ahorrado (0 %, 1–24 %, 25–49 %, 50–74 %, 75–99 %, 100 %). El promedio general da el mismo peso a cada meta visible y no duplica metas compartidas. La fecha orienta el mensaje; una demora no mata la planta ni borra el ahorro. La reversión de un aporte recalcula el avance.
+
+## Especies ilustradas
+
+Además del cosmos (fotográfico), cada meta puede crecer como **árbol frutal**, **girasol**, **cactus** o **bambú**: ilustraciones SVG dibujadas en código (`src/components/PlantArt.tsx`), con colores en los tokens `--plant-*`. Cada especie tiene su simbolismo y nombres propios para las seis etapas (`src/live/plants.ts`): el árbol termina con frutos, el girasol se abre al sol, el cactus florece con paciencia y el bambú sube nudo a nudo.
+
+La planta se elige al crear la meta o desde «Tipo de planta» en el jardín. La elección es personal y se guarda en `profile.preferences.plantKinds` (sin cambios en la base de datos); las metas sin elección conservan el cosmos. El vaivén se detiene con «Pausar movimiento», movimiento reducido y `prefers-reduced-motion`. Pruebas: `tests/garden-plants.test.mjs` y `scripts/evidence/check-plants.cjs` (capturas EV-30 a EV-32).

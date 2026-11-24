@@ -3,6 +3,9 @@ import type { Session } from '@supabase/supabase-js';
 import { database, requireDatabase, rpc, loadSnapshot, emptySnapshot, passwordRecovery } from './client';
 import { PasswordRecovery, RecoveryEmailForm } from './PasswordRecovery';
 import { cleanRecoveryUrl } from './recoveryFlow';
+import { isPlantKind, plantKindsFrom } from './plants';
+import { PlantPicker } from '../components/PlantPicker';
+import type { PlantKind } from './plants';
 import { amountProblem, amountTooLarge, friendlyError, MAX_AMOUNT, safeStorage } from './errors';
 import type { Snapshot, Profile, Preferences, Movement, Member, Request, Goal } from './client';
 import { interpretLocally, learningKey, localDate, soles, weekExpenses } from './domain';
@@ -157,6 +160,7 @@ function Workspace({session}:{session:Session}) {
   const [consent,setConsent]=useState(false);
   const queueKey=`av-pending-${userId}`;
   const prefs={...defaults,...profile?.preferences} as AppPreferences;
+  const plantKinds=plantKindsFrom(profile?.preferences);
   useTheme(prefs.theme);
   const people=peopleByGroup[groupId]||{members:[],requests:[]};
   const pendingRequests=data.groups.filter(g=>data.roles[g.id]==='admin').reduce((total,g)=>total+(peopleByGroup[g.id]?.requests.length||0),0);
@@ -252,6 +256,14 @@ function Workspace({session}:{session:Session}) {
     const {error}=await requireDatabase().from('profiles').upsert(next);
     if(error){setProfile(previous);throw error;}safeStorage.set(`av-profile-${userId}`,JSON.stringify(next));
   }
+  async function savePlantKinds(next:Record<string,PlantKind>){
+    if(!profile)return;
+    await updateProfile({...profile,preferences:{...prefs,plantKinds:next} as Profile['preferences']});
+  }
+  async function choosePlant(goalId:string,kind:PlantKind){
+    if(plantKinds[goalId]===kind||(!plantKinds[goalId]&&kind==='cosmos'))return;
+    await act(async()=>{await savePlantKinds({...plantKinds,[goalId]:kind});setMessage('Planta cambiada. Tu avance se conserva.');});
+  }
   async function finishProfile(e:React.FormEvent){
     e.preventDefault();if(!consent)return;
     await act(async()=>{
@@ -322,16 +334,16 @@ function Workspace({session}:{session:Session}) {
       {pending>0&&<p role="status">{pending} movimiento(s) pendiente(s). <button className="av-link" disabled={!online||busy} onClick={()=>act(flushQueue)}>Reintentar sincronización</button></p>}
       <div className="av-tab-panel" key={tab}>
       {tab==='garden'&&<>
-        <Garden goals={selectedGoals} groups={data.groups} selectedId={selectedGoalId} today={today} prefs={prefs} onSelect={setSelectedGoalId} onContribute={openComposer} onCreate={()=>setTab('goals')} watering={watering} celebration={celebration}/>
+        <Garden goals={selectedGoals} groups={data.groups} selectedId={selectedGoalId} today={today} prefs={prefs} onSelect={setSelectedGoalId} onContribute={openComposer} onCreate={()=>setTab('goals')} watering={watering} celebration={celebration} plantKinds={plantKinds} onPlantChange={(goalId,kind)=>void choosePlant(goalId,kind)}/>
         <div className="av-stats"><section className="av-card"><h2>Avance conjunto de tus metas</h2><strong>{soles(savedShown)}</strong><p>{selectedGoals.length} meta(s){isOverview?' personales y compartidas':selectedGroup?` de ${selectedGroup.name}`:' personales'}. Cada planta crece según su propio avance.</p></section>
           <section className="av-card av-budget-card"><h2>Tu presupuesto semanal</h2><p>Solo tus gastos de esta semana, de lunes a hoy.</p><BudgetGauge spent={spent} budget={prefs.weeklyBudget} movements={mine} today={today}/>
             <p>{spent>prefs.weeklyBudget?'Superaste el presupuesto que elegiste. Puedes revisar tus categorías y ajustar el próximo paso.':'Puedes revisar tus movimientos cuando lo necesites.'}</p></section></div>
       </>}
       {tab==='goals'&&<><h1>{selectedGroup?`Metas de ${selectedGroup.name}`:'Mis metas'}</h1><p>Un ahorro se suma únicamente a la meta que confirmes.</p>
         {isOverview&&<p>Al crear aquí una meta será personal. Para crear una meta compartida, elige su grupo en «Tu espacio».</p>}
-        {(!selectedGroup||groupAdmin)&&<GoalForm groupId={selectedGroup?.id||''} busy={busy} onCreate={(title,amount,date)=>act(async()=>{const problem=amountProblem(amount);if(problem)throw new Error(problem);const id=await rpc<string>('create_goal',{p_title:title,p_amount:amount,p_date:date,p_group:selectedGroup?.id||null});await refresh();setSelectedGoalId(id);setMessage('Meta creada. Plantamos una nueva maceta; el ahorro de tus otras metas se conserva.');})}/>}
+        {(!selectedGroup||groupAdmin)&&<GoalForm groupId={selectedGroup?.id||''} busy={busy} onCreate={(title,amount,date,kind)=>act(async()=>{const problem=amountProblem(amount);if(problem)throw new Error(problem);const id=await rpc<string>('create_goal',{p_title:title,p_amount:amount,p_date:date,p_group:selectedGroup?.id||null});if(kind!=='cosmos')await savePlantKinds({...plantKinds,[id]:kind}).catch(()=>{});await refresh();setSelectedGoalId(id);setMessage('Meta creada. Plantamos una nueva maceta; el ahorro de tus otras metas se conserva.');})}/>}
         {!!selectedGroup&&!groupAdmin&&<p>El administrador crea las metas. Todos los miembros pueden aportar.</p>}
-        <div className="av-cards">{selectedGoals.map(g=><GoalCard key={g.id} goal={g} groups={data.groups} today={today} onView={()=>{setSelectedGoalId(g.id);setTab('garden');}} onContribute={()=>openComposer(g)}/>)}</div>
+        <div className="av-cards">{selectedGoals.map(g=><GoalCard key={g.id} goal={g} kind={plantKinds[g.id]} groups={data.groups} today={today} onView={()=>{setSelectedGoalId(g.id);setTab('garden');}} onContribute={()=>openComposer(g)}/>)}</div>
         {!selectedGoals.length&&<EmptyState title="Planta tu primera meta" text={!selectedGroup||groupAdmin?'Dale un nombre, un monto y una fecha. Verás crecer su maceta con cada aporte.':'Cuando el administrador cree una meta compartida, aparecerá aquí para que aportes.'}
           action={!selectedGroup||groupAdmin?{label:'Crear una meta',icon:<Target size={24} aria-hidden="true"/>,onClick:()=>{const form=document.getElementById('av-goal-form') as HTMLDetailsElement|null;if(form){form.open=true;form.querySelector('input')?.focus();}}}:undefined}/>}</>}
       {tab==='groups'&&<><h1>Ahorrar también es compartir</h1><p>Puedes pertenecer a varios grupos. Tus gastos personales se mantienen privados.</p>
@@ -385,9 +397,9 @@ function Workspace({session}:{session:Session}) {
   </div>;
 }
 
-function GoalForm({groupId,busy,onCreate}:{groupId:string;busy:boolean;onCreate:(title:string,amount:number,date:string)=>Promise<void>}) {
-  return <details className="av-card" id="av-goal-form" key={groupId}><summary>Crear una meta</summary><form onSubmit={async e=>{e.preventDefault();const form=e.currentTarget;const f=new FormData(form);await onCreate(String(f.get('title')),Number(f.get('amount')),String(f.get('date')));}}>
-    <label>Nombre de la meta<input name="title" required maxLength={100} autoComplete="off"/></label><label>Monto objetivo (S/)<input name="amount" type="number" inputMode="decimal" autoComplete="off" min="0.01" max="999999.99" step="0.01" required/></label><label>Fecha objetivo<input name="date" type="date" min={localDate()} required/></label><button disabled={busy}>Crear meta</button></form></details>;
+function GoalForm({groupId,busy,onCreate}:{groupId:string;busy:boolean;onCreate:(title:string,amount:number,date:string,kind:PlantKind)=>Promise<void>}) {
+  return <details className="av-card" id="av-goal-form" key={groupId}><summary>Crear una meta</summary><form onSubmit={async e=>{e.preventDefault();const form=e.currentTarget;const f=new FormData(form);const kind=String(f.get('plant')||'cosmos');await onCreate(String(f.get('title')),Number(f.get('amount')),String(f.get('date')),isPlantKind(kind)?kind:'cosmos');}}>
+    <label>Nombre de la meta<input name="title" required maxLength={100} autoComplete="off"/></label><label>Monto objetivo (S/)<input name="amount" type="number" inputMode="decimal" autoComplete="off" min="0.01" max="999999.99" step="0.01" required/></label><label>Fecha objetivo<input name="date" type="date" min={localDate()} required/></label><PlantPicker name="plant" defaultValue="cosmos"/><button disabled={busy}>Crear meta</button></form></details>;
 }
 function GroupForms({busy,onCreate,onJoin}:{busy:boolean;onCreate:(name:string)=>Promise<void>;onJoin:(code:string)=>Promise<void>}) {
   return <div className="av-cards"><form className="av-card" onSubmit={e=>{e.preventDefault();onCreate(String(new FormData(e.currentTarget).get('name')));}}><h2>Crear un grupo</h2><label>Nombre del grupo<input id="av-group-name" name="name" required maxLength={100} autoComplete="off"/></label><button disabled={busy}>Crear grupo</button></form>
